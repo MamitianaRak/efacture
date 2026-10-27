@@ -1,0 +1,112 @@
+@let current = invoice();
+
+<div class="page-header">
+  <h1>
+    @if (current?.number) {
+      {{ current?.type === 'CREDIT_NOTE' ? 'Avoir' : 'Facture' }} {{ current?.number }}
+    } @else if (current) {
+      {{ current.type === 'CREDIT_NOTE' ? 'Avoir' : 'Facture' }} en brouillon
+    } @else {
+      Nouvelle facture
+    }
+  </h1>
+  @if (current) {
+    <app-status-badge [status]="current.status" />
+  }
+</div>
+
+@if (current?.originalInvoiceNumber) {
+  <p class="muted">Annule la facture {{ current?.originalInvoiceNumber }}.</p>
+}
+@if (current?.status === 'ISSUED') {
+  <p class="muted">
+    Émise le {{ current?.issueDate | date: 'dd/MM/yyyy' }}. Une facture émise ne peut plus être modifiée :
+    pour la corriger, créez un avoir.
+  </p>
+}
+
+<app-error-alert [error]="error()" />
+
+<form [formGroup]="form" class="card">
+  <div class="form-grid">
+    <label>
+      Client
+      <select formControlName="customerId">
+        <option [ngValue]="null" disabled>Choisir un client</option>
+        @for (customer of customers(); track customer.id) {
+          <option [ngValue]="customer.id">{{ customer.legalName }}</option>
+        }
+      </select>
+      @if (customers().length === 0) {
+        <small class="muted">Aucun client : <a routerLink="/clients/nouveau">en créer un</a>.</small>
+      }
+    </label>
+    <label>
+      Date d’échéance
+      <input type="date" formControlName="dueDate" />
+    </label>
+  </div>
+
+  <table class="lines">
+    <thead>
+      <tr>
+        <th>Désignation</th>
+        <th class="num">Quantité</th>
+        <th class="num">Prix unitaire HT</th>
+        <th class="num">TVA</th>
+        <th class="right">Total HT</th>
+        @if (editable()) { <th></th> }
+      </tr>
+    </thead>
+    <tbody formArrayName="lines">
+      @for (line of lines.controls; track line; let i = $index) {
+        <tr [formGroupName]="i">
+          <td><input formControlName="description" placeholder="Prestation ou produit" /></td>
+          <td class="num"><input type="number" formControlName="quantity" min="0" step="any" /></td>
+          <td class="num"><input type="number" formControlName="unitPrice" min="0" step="0.01" /></td>
+          <td class="num">
+            <select formControlName="vatRate">
+              @for (rate of vatRates; track rate) {
+                <option [ngValue]="rate">{{ rate / 100 | percent: '1.0-1' }}</option>
+              }
+            </select>
+          </td>
+          <td class="right">{{ line.value.quantity! * line.value.unitPrice! | currency: 'EUR' }}</td>
+          @if (editable()) {
+            <td class="right">
+              <button type="button" class="link danger" (click)="removeLine(i)" aria-label="Supprimer la ligne">✕</button>
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+  @if (editable()) {
+    <button type="button" class="link" (click)="addLine()">+ Ajouter une ligne</button>
+  }
+
+  <div class="totals">
+    @for (vat of totals().vatBreakdown; track vat.rate) {
+      <div><span>TVA {{ vat.rate / 100 | percent: '1.0-1' }} sur {{ vat.taxableAmount | currency: 'EUR' }}</span><span>{{ vat.vatAmount | currency: 'EUR' }}</span></div>
+    }
+    <div><span>Total HT</span><span>{{ totals().totalNet | currency: 'EUR' }}</span></div>
+    <div><span>Total TVA</span><span>{{ totals().totalVat | currency: 'EUR' }}</span></div>
+    <div class="grand"><span>Total TTC</span><span>{{ totals().totalGross | currency: 'EUR' }}</span></div>
+  </div>
+</form>
+
+<div class="actions">
+  <a routerLink="/factures" class="button">Retour</a>
+  @if (editable()) {
+    @if (current) {
+      <button type="button" class="danger" (click)="deleteDraft()" [disabled]="busy()">Supprimer le brouillon</button>
+    }
+    <button type="button" (click)="save()" [disabled]="form.invalid || busy()">Enregistrer le brouillon</button>
+    <button type="button" class="primary" (click)="issue()" [disabled]="form.invalid || busy()">Émettre</button>
+  } @else if (current) {
+    @if (current.type === 'INVOICE') {
+      <button type="button" class="danger" (click)="createCreditNote()" [disabled]="busy()">Créer un avoir</button>
+    }
+    <a class="button primary" [href]="facturXUrl(current)" download>Télécharger le Factur-X</a>
+  }
+</div>

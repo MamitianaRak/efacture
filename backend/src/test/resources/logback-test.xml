@@ -1,0 +1,6 @@
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+    <!-- The validator also runs the German XRechnung rules and logs every one of them that does not apply. -->
+    <logger name="org.mustangproject.validator" level="WARN"/>
+    <logger name="org.testcontainers" level="WARN"/>
+</configuration>

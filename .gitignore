@@ -1,0 +1,12 @@
+target/
+node_modules/
+dist/
+.idea/
+*.iml
+.vscode/
+.env
+.angular/
+.classpath
+.project
+.settings/
+.factorypath

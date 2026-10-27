@@ -22,7 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 class InvoiceNumberingIntegrationTest extends IntegrationTest {
 
-    private static final int YEAR = LocalDate.now(ZoneId.of("Europe/Paris")).getYear();
+    private static final int YEAR = TODAY.getYear();
 
     @Autowired
     private InvoiceService service;
@@ -34,7 +34,7 @@ class InvoiceNumberingIntegrationTest extends IntegrationTest {
     private CompanyRepository companies;
 
     private Long newDraft(Customer customer) {
-        Invoice draft = Invoice.draft(customer, LocalDate.now(ZoneId.of("Europe/Paris")).plusDays(30),
+        Invoice draft = Invoice.draft(customer, TODAY.plusDays(30),
                 List.of(new InvoiceLine("Prestation", BigDecimal.ONE, new BigDecimal("100.00"), new BigDecimal("20"))));
         return invoices.save(draft).getId();
     }

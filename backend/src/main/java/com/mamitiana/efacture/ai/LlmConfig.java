@@ -30,7 +30,11 @@ public class LlmConfig {
     @Bean
     LlmGateway llmGateway(LlmProperties properties, MeterRegistry meters,
                           ObjectProvider<ObservationRegistry> observations) {
-        ObservationRegistry observationRegistry = observations.getIfAvailable(() -> ObservationRegistry.NOOP);
+        return create(properties, meters, observations.getIfAvailable(() -> ObservationRegistry.NOOP));
+    }
+
+    /** Also used outside Spring by the extraction evaluation, so it runs with the application's exact setup. */
+    public static LlmGateway create(LlmProperties properties, MeterRegistry meters, ObservationRegistry observationRegistry) {
         Map<String, ChatClient> clients = new HashMap<>();
         Map<LlmLane, List<LlmCandidate>> lanes = new EnumMap<>(LlmLane.class);
 

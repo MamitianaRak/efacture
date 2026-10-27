@@ -31,6 +31,8 @@
 		<mustang.version>2.26.0</mustang.version>
 		<spring-ai.version>2.0.2</spring-ai.version>
 		<resilience4j.version>2.4.0</resilience4j.version>
+		<!-- The LLM evaluation calls real APIs: excluded from the build, run on demand with -Dgroups=llm-eval -DexcludedGroups= -->
+		<excludedGroups>llm-eval</excludedGroups>
 	</properties>
 	<dependencyManagement>
 		<dependencies>

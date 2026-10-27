@@ -17,7 +17,7 @@ public class TokenService {
 
     static final String ROLES_CLAIM = "roles";
     static final String NAME_CLAIM = "name";
-    private static final String ISSUER = "efacture";
+    static final String ISSUER = "efacture";
 
     private final JwtEncoder encoder;
     private final Duration ttl;

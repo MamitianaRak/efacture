@@ -27,8 +27,8 @@ import org.springframework.test.web.servlet.ResultActions;
 @WithMockUser(roles = "MANAGER")
 class InvoiceApiIntegrationTest extends IntegrationTest {
 
-    private static final int YEAR = LocalDate.now(ZoneId.of("Europe/Paris")).getYear();
-    private static final String DUE_DATE = LocalDate.now(ZoneId.of("Europe/Paris")).plusDays(30).toString();
+    private static final int YEAR = TODAY.getYear();
+    private static final String DUE_DATE = TODAY.plusDays(30).toString();
 
     @Autowired
     private MockMvc mvc;

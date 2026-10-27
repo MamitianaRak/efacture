@@ -52,7 +52,7 @@ public class LlmGateway {
         int attempts = 0;
 
         for (LlmCandidate candidate : candidates) {
-            CircuitBreaker breaker = breakers.circuitBreaker(candidate.provider());
+            CircuitBreaker breaker = breakers.circuitBreaker(breakerName(candidate));
             Timer.Sample sample = Timer.start(meters);
             try {
                 attempts++;
@@ -83,8 +83,16 @@ public class LlmGateway {
                 Map.Entry::getKey,
                 e -> e.getValue().stream()
                         .map(c -> new CandidateStatus(c.provider(), c.model(),
-                                breakers.circuitBreaker(c.provider()).getState().name()))
+                                breakers.circuitBreaker(breakerName(c)).getState().name()))
                         .toList()));
+    }
+
+    /**
+     * One circuit per provider and model: quotas are counted per model (Gemini's free tier allows a model
+     * 20 requests a day), so one exhausted model must not switch off the provider's other models.
+     */
+    private static String breakerName(LlmCandidate candidate) {
+        return candidate.provider() + ":" + candidate.model();
     }
 
     public record CandidateStatus(String provider, String model, String circuit) {

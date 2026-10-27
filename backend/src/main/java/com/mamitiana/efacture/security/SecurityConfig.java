@@ -1,6 +1,7 @@
 package com.mamitiana.efacture.security;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +22,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -93,9 +97,17 @@ public class SecurityConfig {
         return NimbusJwtEncoder.withSecretKey(jwtSigningKey).build();
     }
 
+    /**
+     * Checks the signature, then expiry and issuer. Expiry is checked against the application's clock, the one
+     * that issued the token: one source of time for the whole application (and testable with a fixed clock).
+     */
     @Bean
-    JwtDecoder jwtDecoder(SecretKey jwtSigningKey) {
-        return NimbusJwtDecoder.withSecretKey(jwtSigningKey).macAlgorithm(MacAlgorithm.HS256).build();
+    JwtDecoder jwtDecoder(SecretKey jwtSigningKey, Clock clock) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSigningKey).macAlgorithm(MacAlgorithm.HS256).build();
+        JwtTimestampValidator expiry = new JwtTimestampValidator();
+        expiry.setClock(clock);
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(expiry, new JwtIssuerValidator(TokenService.ISSUER)));
+        return decoder;
     }
 
     @Bean

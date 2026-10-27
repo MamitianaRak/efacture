@@ -24,7 +24,6 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @WithMockUser(roles = "MANAGER")
 class DashboardIntegrationTest extends IntegrationTest {
 
-    private static final LocalDate TODAY = LocalDate.now(ZoneId.of("Europe/Paris"));
 
     @Autowired
     private MockMvc mvc;

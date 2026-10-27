@@ -25,7 +25,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @WithMockUser(roles = "MANAGER")
 class PlatformIntegrationTest extends IntegrationTest {
 
-    private static final String DUE_DATE = LocalDate.now(ZoneId.of("Europe/Paris")).plusDays(30).toString();
+    private static final String DUE_DATE = TODAY.plusDays(30).toString();
 
     @Autowired
     private MockMvc mvc;

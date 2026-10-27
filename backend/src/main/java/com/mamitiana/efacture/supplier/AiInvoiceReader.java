@@ -47,7 +47,9 @@ public class AiInvoiceReader {
             - Extrais uniquement ce qui est écrit sur le document. N'invente rien et ne calcule pas une valeur
               absente : laisse le champ à null.
             - Montants : nombres décimaux avec un point, sans symbole ni espace (1234.50).
-            - Dates : format AAAA-MM-JJ.
+              totalNet = Total HT, totalVat = montant de TVA, totalGross = Total TTC (montant à payer).
+            - Dates : format AAAA-MM-JJ. L'échéance est la date limite de paiement imprimée ; une date de
+              paiement (« payée le... ») n'est pas une échéance. Sans date limite imprimée, laisse null.
             - SIREN : 9 chiffres sans espace. Si seul le SIRET (14 chiffres) figure, prends ses 9 premiers chiffres.
             - IBAN : uniquement celui du fournisseur, donné pour le payer, recopié sans espaces. Si aucun IBAN
               n'est imprimé, laisse null. Ne prends jamais l'IBAN du client (mandat de prélèvement).
@@ -102,7 +104,7 @@ public class AiInvoiceReader {
                 : "Extrais les données de cette facture. Texte extrait du PDF :\n---\n" + document.text() + "\n---";
     }
 
-    record Document(List<Media> images, String text) {
+    public record Document(List<Media> images, String text) {
     }
 
     static Document prepare(byte[] content, String contentType) {

@@ -21,7 +21,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 /** Real logins and real JWTs against the demo accounts created at startup. */
 class SecurityIntegrationTest extends IntegrationTest {
 
-    private static final String DUE_DATE = LocalDate.now(ZoneId.of("Europe/Paris")).plusDays(30).toString();
+    private static final String DUE_DATE = TODAY.plusDays(30).toString();
     private static final String COMPANY = """
             {"legalName": "Atelier Dupont SARL", "siren": "404833048", "vatNumber": "FR83404833048",
              "street": "1 rue de la Paix", "postalCode": "75002", "city": "Paris", "paymentTerms": "30 jours"}

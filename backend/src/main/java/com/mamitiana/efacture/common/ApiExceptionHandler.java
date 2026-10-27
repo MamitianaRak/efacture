@@ -1,6 +1,7 @@
 package com.mamitiana.efacture.common;
 
 import java.util.List;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -28,6 +29,13 @@ public class ApiExceptionHandler {
     ProblemDetail concurrentUpdate() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
                 "Le document a été modifié entre-temps, rechargez-le puis réessayez");
+    }
+
+    /** A database constraint caught a race the service checks could not, e.g. two simultaneous submissions. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ProblemDetail constraintViolation() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+                "L'opération entre en conflit avec une autre action déjà enregistrée, rechargez la page");
     }
 
     @ExceptionHandler(MissingMentionsException.class)

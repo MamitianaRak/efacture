@@ -12,7 +12,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Base for tests against a real PostgreSQL started by Testcontainers.
  * Skipped, not failed, when Docker is not running.
  */
-@SpringBootTest
+@SpringBootTest(properties = "app.platform.simulator.scheduled=false")
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)

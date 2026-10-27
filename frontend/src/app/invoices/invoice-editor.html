@@ -113,3 +113,7 @@
     <button type="button" class="primary" (click)="downloadFacturX(current!)">Télécharger le Factur-X</button>
   }
 </div>
+
+@if (current?.status === 'ISSUED') {
+  <app-platform-panel [invoice]="current!" />
+}

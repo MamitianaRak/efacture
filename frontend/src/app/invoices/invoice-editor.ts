@@ -1,5 +1,5 @@
 import { CurrencyPipe, DatePipe, PercentPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -9,14 +9,15 @@ import { Api, ApiError, toApiError } from '../shared/api';
 import { Customer, Invoice, InvoiceRequest, VAT_RATES } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
 import { computeTotals } from '../shared/totals';
+import { PlatformPanel } from './platform-panel';
 import { StatusBadge } from './status-badge';
 
 @Component({
   selector: 'app-invoice-editor',
-  imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, DatePipe, PercentPipe, ErrorAlert, StatusBadge],
+  imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, DatePipe, PercentPipe, ErrorAlert, StatusBadge, PlatformPanel],
   templateUrl: './invoice-editor.html',
 })
-export class InvoiceEditor implements OnInit {
+export class InvoiceEditor {
   /** Bound from the route parameter; absent for a new invoice. */
   readonly id = input<string>();
 
@@ -63,17 +64,29 @@ export class InvoiceEditor implements OnInit {
     return invoice?.status !== 'ISSUED' && (this.isManager() || invoice?.type === 'CREDIT_NOTE');
   });
 
-  ngOnInit(): void {
+  constructor() {
     this.api.listCustomers().subscribe((customers) => this.customers.set(customers));
-    const id = this.id();
-    if (id) {
-      this.api.getInvoice(Number(id)).subscribe({
-        next: (invoice) => this.show(invoice),
-        error: (e: unknown) => this.error.set(toApiError(e)),
-      });
-    } else {
+    // The router reuses this component from /factures/2 to /factures/5 (e.g. after creating a credit note):
+    // reload whenever the id changes, not only on creation.
+    effect(() => {
+      const id = this.id();
+      untracked(() => this.load(id));
+    });
+  }
+
+  private load(id: string | undefined): void {
+    this.error.set(null);
+    if (!id) {
       this.form.controls.dueDate.setValue(this.inDays(30));
+      return;
     }
+    if (this.invoice()?.id === Number(id)) {
+      return;
+    }
+    this.api.getInvoice(Number(id)).subscribe({
+      next: (invoice) => this.show(invoice),
+      error: (e: unknown) => this.error.set(toApiError(e)),
+    });
   }
 
   protected get lines() {
@@ -180,7 +193,9 @@ export class InvoiceEditor implements OnInit {
       this.lines.push(this.newLine(line));
     }
     this.form.patchValue({ customerId: invoice.customerId, dueDate: invoice.dueDate ?? '' });
-    if (!this.editable()) {
+    if (this.editable()) {
+      this.form.enable();
+    } else {
       this.form.disable();
     }
   }

@@ -9,6 +9,8 @@ import {
   InvoiceRequest,
   InvoiceStatus,
   InvoiceSummary,
+  PlatformStatus,
+  Submission,
 } from './api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -66,6 +68,22 @@ export class Api {
 
   createCreditNote(id: number): Observable<Invoice> {
     return this.http.post<Invoice>(`/api/invoices/${id}/credit-note`, null);
+  }
+
+  getSubmission(invoiceId: number): Observable<Submission> {
+    return this.http.get<Submission>(`/api/invoices/${invoiceId}/submission`);
+  }
+
+  submit(invoiceId: number): Observable<Submission> {
+    return this.http.post<Submission>(`/api/invoices/${invoiceId}/submission`, null);
+  }
+
+  markPaid(invoiceId: number): Observable<Submission> {
+    return this.http.post<Submission>(`/api/invoices/${invoiceId}/submission/payment`, null);
+  }
+
+  latestPlatformStatuses(): Observable<Record<number, PlatformStatus>> {
+    return this.http.get<Record<number, PlatformStatus>>('/api/submissions/latest-statuses');
   }
 
   /** Fetched through HttpClient (not a plain link) so the request carries the bearer token. */

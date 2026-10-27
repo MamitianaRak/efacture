@@ -80,3 +80,38 @@ export interface InvoiceRequest {
 }
 
 export const VAT_RATES = [20, 10, 5.5, 2.1, 0] as const;
+
+export type PlatformStatus =
+  | 'DEPOSEE'
+  | 'REJETEE'
+  | 'MISE_A_DISPOSITION'
+  | 'APPROUVEE'
+  | 'REFUSEE'
+  | 'ENCAISSEE';
+
+export const PLATFORM_STATUS_LABELS: Record<PlatformStatus, string> = {
+  DEPOSEE: 'Déposée',
+  REJETEE: 'Rejetée',
+  MISE_A_DISPOSITION: 'Mise à disposition',
+  APPROUVEE: 'Approuvée',
+  REFUSEE: 'Refusée',
+  ENCAISSEE: 'Encaissée',
+};
+
+export interface SubmissionEvent {
+  status: PlatformStatus;
+  reason: string | null;
+  source: 'SELLER' | 'PLATFORM';
+  occurredAt: string;
+}
+
+export interface Submission {
+  externalId: string;
+  status: PlatformStatus;
+  statusReason: string | null;
+  finalStatus: boolean;
+  submittedAt: string;
+  updatedAt: string;
+  events: SubmissionEvent[];
+  simulated: boolean;
+}

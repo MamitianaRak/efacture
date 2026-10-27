@@ -363,3 +363,9 @@ table.lines {
   gap: 16px;
   font-size: 0.9rem;
 }
+
+.badge.danger {
+  background: #fdecea;
+  color: #8c1d18;
+  border-color: transparent;
+}

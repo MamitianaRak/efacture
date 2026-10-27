@@ -1,5 +1,6 @@
 package com.mamitiana.efacture.common;
 
+import com.mamitiana.efacture.ai.LlmUnavailableException;
 import java.util.List;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -36,6 +37,11 @@ public class ApiExceptionHandler {
     ProblemDetail constraintViolation() {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
                 "L'opération entre en conflit avec une autre action déjà enregistrée, rechargez la page");
+    }
+
+    @ExceptionHandler(LlmUnavailableException.class)
+    ProblemDetail llmUnavailable(LlmUnavailableException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
     }
 
     @ExceptionHandler(MissingMentionsException.class)

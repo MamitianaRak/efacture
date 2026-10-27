@@ -45,17 +45,25 @@ public class SimulatedPlatform implements PlatformGateway {
     private final ApplicationEventPublisher events;
     private final Clock clock;
     private final RandomGenerator random;
+    private final boolean validateFiles;
     private volatile double rejectionRate;
     private volatile double refusalRate;
 
+    /**
+     * @param validateFiles runs the full Factur-X validator on each file. It needs a few hundred MB of memory,
+     *                      more than a 512 MB hosting tier allows next to the application, so the online demo
+     *                      turns it off; it stays on locally and in CI.
+     */
     public SimulatedPlatform(ApplicationEventPublisher events, Clock clock,
                              @Value("${app.platform.simulator.rejection-rate:0.1}") double rejectionRate,
-                             @Value("${app.platform.simulator.refusal-rate:0.2}") double refusalRate) {
+                             @Value("${app.platform.simulator.refusal-rate:0.2}") double refusalRate,
+                             @Value("${app.platform.simulator.validate-files:true}") boolean validateFiles) {
         this.events = events;
         this.clock = clock;
         this.random = new SplittableRandom();
         this.rejectionRate = rejectionRate;
         this.refusalRate = refusalRate;
+        this.validateFiles = validateFiles;
     }
 
     /** Changes the scenario at runtime: 0 never happens, 1 always happens. Used by tests and demos. */
@@ -110,10 +118,12 @@ public class SimulatedPlatform implements PlatformGateway {
 
     /** Real validation first (a broken file is always rejected), then the simulated rejection rate. */
     private String technicalCheck(Pending pending) {
-        ZUGFeRDValidator validator = new ZUGFeRDValidator();
-        validator.validate(pending.file(), pending.invoiceNumber() + ".pdf");
-        if (!validator.wasCompletelyValid()) {
-            return "Fichier Factur-X non conforme à la norme EN 16931";
+        if (validateFiles) {
+            ZUGFeRDValidator validator = new ZUGFeRDValidator();
+            validator.validate(pending.file(), pending.invoiceNumber() + ".pdf");
+            if (!validator.wasCompletelyValid()) {
+                return "Fichier Factur-X non conforme à la norme EN 16931";
+            }
         }
         return random.nextDouble() < rejectionRate ? pick(TECHNICAL_REJECTIONS) : null;
     }

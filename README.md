@@ -123,7 +123,24 @@ Configuration (environment variables):
 | `DEMO_USERS` | `true` | Create the two demo accounts at startup |
 | `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | local Docker database | PostgreSQL connection |
 
+| `SIMULATOR_VALIDATE_FILES` | `true` | Run the full Factur-X validator on each file submitted to the simulated platform |
+
 The simulator's pace and rates are set in `application.properties` (`app.platform.simulator.*`).
+
+## Deployment
+
+The `Dockerfile` builds **one image** for the whole application: the Angular build is copied into Spring Boot's static resources, so the app and the API share one origin (no CORS). It runs as a non-root user on a JRE-only base.
+
+`render.yaml` deploys it on Render's free tier, with PostgreSQL hosted on Neon. The image was sized by measuring it in a **512 MB container without swap**:
+
+| Configuration | Result |
+|---|---|
+| JVM defaults | killed for lack of memory |
+| Serial GC, heap at 60 % | killed for lack of memory |
+| Serial GC, heap at 40 %, Factur-X validator on | killed after two full submissions |
+| Serial GC, heap at 40 %, Factur-X validator off | holds three full scenarios, with a thin margin |
+
+The online demo therefore runs with `SIMULATOR_VALIDATE_FILES=false`; validation stays on locally and in CI, where every generated file is checked.
 
 Run the tests:
 
@@ -158,7 +175,7 @@ All endpoints except login require a bearer token.
 
 - **Kafka** for platform notifications, with a transactional **outbox** (see limitations)
 - **Supplier invoices**: import a Factur-X file and read its XML
-- Docker images, GitHub Actions CI, online demo
+- Online demo (configuration ready in `render.yaml`)
 
 ## Limitations
 

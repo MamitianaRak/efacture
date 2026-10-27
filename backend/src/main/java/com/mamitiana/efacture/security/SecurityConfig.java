@@ -48,7 +48,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/**", "/actuator/**").authenticated()
+                        // Everything else is the Angular app's static files: public, the data stays behind /api.
+                        .anyRequest().permitAll())
                 .oauth2ResourceServer(rs -> rs
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
                         .authenticationEntryPoint(unauthorized()))

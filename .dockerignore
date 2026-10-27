@@ -1,0 +1,9 @@
+.git
+.github
+**/node_modules
+**/dist
+**/.angular
+**/target
+**/.vscode
+**/.idea
+docs

@@ -12,7 +12,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Base for tests against a real PostgreSQL started by Testcontainers.
  * Skipped, not failed, when Docker is not running.
  */
-@SpringBootTest(properties = "app.platform.simulator.scheduled=false")
+// No real LLM call from tests, even with keys in backend/.env: tests that need a model use a scripted one.
+@SpringBootTest(properties = {
+        "app.platform.simulator.scheduled=false",
+        "app.llm.providers.groq.api-key=",
+        "app.llm.providers.gemini.api-key="})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
 @Testcontainers(disabledWithoutDocker = true)

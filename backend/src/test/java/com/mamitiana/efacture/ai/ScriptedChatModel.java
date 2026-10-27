@@ -14,6 +14,7 @@ public class ScriptedChatModel implements ChatModel {
 
     private final Supplier<String> answer;
     private final AtomicInteger calls = new AtomicInteger();
+    private volatile Prompt lastPrompt;
 
     private ScriptedChatModel(Supplier<String> answer) {
         this.answer = answer;
@@ -33,9 +34,15 @@ public class ScriptedChatModel implements ChatModel {
         return calls.get();
     }
 
+    /** The last prompt received, to check what was actually sent to the model. */
+    public Prompt lastPrompt() {
+        return lastPrompt;
+    }
+
     @Override
     public ChatResponse call(Prompt prompt) {
         calls.incrementAndGet();
+        lastPrompt = prompt;
         return new ChatResponse(List.of(new Generation(new AssistantMessage(answer.get()))));
     }
 }

@@ -4,9 +4,9 @@
 
 France is making electronic invoicing mandatory between VAT-registered businesses. Every company must be able to **receive** e-invoices since **1 September 2026**, and small and medium businesses must **issue** them from **1 September 2027**. Invoices travel through government-registered platforms (*plateformes agréées*) in structured formats such as **Factur-X**: a readable PDF with machine-readable XML embedded inside.
 
-eFacture PME lets a small business create compliant invoices and credit notes, enforces the legal rules a spreadsheet cannot, and produces Factur-X files that pass the official EN 16931 validation.
+eFacture PME lets a small business create compliant invoices and credit notes, enforces the legal rules a spreadsheet cannot, produces Factur-X files that pass the official EN 16931 validation, and follows each invoice on the platform until it is paid.
 
-> **Demo project.** No invoice is sent to any tax authority or platform. Connecting to a real *plateforme agréée* requires registration; the upcoming platform integration is simulated.
+> **Demo project.** No invoice is sent to any tax authority or real platform. Connecting to a real *plateforme agréée* requires registration, so the platform is **simulated** behind an interface a real client could implement.
 
 ## Features
 
@@ -16,26 +16,32 @@ eFacture PME lets a small business create compliant invoices and credit notes, e
 - **Mandatory mentions** checked before issuance; every missing item is reported at once (`422` with the list)
 - **Amounts** in `BigDecimal`, VAT computed per rate on the rate total, as EN 16931 requires
 - **Factur-X export**: PDF/A-3 with embedded CII XML, EN 16931 profile, validated with the Mustang validator
-- **Angular UI**: invoices, customers, seller profile, live totals preview, French number and date formats
+- **Simulated registered platform**: submission, then the lifecycle statuses of the reform (deposited, rejected, delivered, approved, refused, paid) with realistic rejection and refusal reasons
+- **Roles with JWT authentication**: the manager runs everything; the accountant reads, follows payments and handles credit notes
+- **Dashboard**: yearly revenue, collected, receivable and overdue amounts, monthly chart, invoices needing action
+- **Angular UI** with live totals preview, live platform status timeline and French number and date formats
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    UI["Angular 22<br/>standalone components, signals"] -- "REST / JSON" --> API["Spring Boot 4<br/>Java 25"]
+    UI["Angular 22<br/>signals, guards, interceptor"] -- "REST / JSON + JWT" --> API["Spring Boot 4<br/>Spring Security"]
     API --> DB[("PostgreSQL<br/>Flyway migrations")]
     API --> FX["Mustangproject<br/>Factur-X PDF/A-3 + XML"]
+    API -- "PlatformGateway" --> PA["Simulated platform<br/>(async, validates Factur-X)"]
+    PA -- "status notifications" --> API
 ```
 
 | Layer | Stack |
 |---|---|
-| Backend | Java 25, Spring Boot 4.1, Spring Data JPA, Bean Validation, Flyway |
+| Backend | Java 25, Spring Boot 4.1, Spring Data JPA / Hibernate, Bean Validation, Flyway |
+| Security | Spring Security 7, OAuth2 resource server, HS256 JWT, bcrypt, method security |
 | Database | PostgreSQL 17 |
 | Factur-X | Mustangproject 2.26 (generation and validation) |
 | Frontend | Angular 22, TypeScript, reactive forms, signals |
-| Tests | JUnit 5, Mockito, Testcontainers, MockMvc, Vitest |
+| Tests | JUnit 5, Mockito, Testcontainers, MockMvc, Spring Security Test, Vitest |
 
-The backend is organised by feature (`company`, `customer`, `invoice`, `facturx`), each with its entity, repository, service, controller and DTO records.
+The backend is organised by feature (`company`, `customer`, `invoice`, `facturx`, `platform`, `dashboard`, `security`), each with its entity, repository, service, controller and DTO records. Flyway owns the schema; Hibernate maps the entities and validates them against it at startup.
 
 ## Technical decisions
 
@@ -57,18 +63,28 @@ It runs inside the issuing transaction: concurrent issuances queue on the row lo
 
 **Factur-X is rebuilt on each download** from the frozen invoice, so the file can never drift from the data.
 
+**The platform behind a port.** The application only knows the `PlatformGateway` interface. The simulator implements it like a real platform would behave: it works asynchronously, really validates each Factur-X file, rejects or refuses at configurable rates, and sends status notifications back as events.
+
+**A state machine for the lifecycle.** `PlatformStatus` lists the allowed transitions; `Submission.apply()` refuses impossible ones (a buyer cannot approve an invoice that was never delivered) and ignores a status received twice, since platforms may deliver the same notification more than once. Every change is kept in a history.
+
+**One live submission per invoice, enforced by the database.** A partial unique index (`WHERE status <> 'REJETEE'`) guarantees it even when two clicks arrive at the same time; a new submission is only possible after a technical rejection.
+
+**Authorization next to the business rule.** Rules sit on the controllers with `@PreAuthorize`, including a business-aware one: `hasRole('MANAGER') or @invoiceAccess.isCreditNote(#id)` lets the accountant issue credit notes but not invoices. Login returns the same `401` for an unknown email and a wrong password, so it does not reveal which accounts exist.
+
+**Dashboard in SQL.** Figures are aggregated in PostgreSQL with CTEs (`DISTINCT ON` for each invoice's latest platform status, credited invoices, receivables) rather than by loading entities. An invoice is receivable when it is issued, not cancelled by a credit note, and neither paid nor refused.
+
 **Errors follow RFC 9457** (`ProblemDetail`), with the list of missing mentions or invalid fields, which the UI displays as is.
 
 ## Tests
 
 | Suite | Count | What it covers |
 |---|---|---|
-| Backend unit (JUnit 5, Mockito) | 34 | SIREN and VAT keys, totals and rounding, invoice rules, mandatory mentions, service behaviour |
+| Backend unit (JUnit 5, Mockito) | 41 | SIREN and VAT keys, totals and rounding, invoice rules, mandatory mentions, service behaviour, platform state machine |
 | Factur-X | 5 | Generated files pass the Mustang validator (PDF/A-3 and EN 16931 rules); embedded XML carries the same totals |
-| Backend integration (Testcontainers) | 4 | Full API lifecycle on a real PostgreSQL, refused issuance consumes no number, 20 concurrent issuances |
-| Frontend (Vitest) | 4 | Navigation, totals preview matching the backend figures |
+| Backend integration (Testcontainers) | 17 | API lifecycle on a real PostgreSQL, 20 concurrent issuances, real logins and JWTs per role, platform scenarios (approved then paid, rejected then resubmitted, refused, duplicate notification), every dashboard figure |
+| Frontend (Vitest) | 7 | Totals preview matching the backend figures, auth interceptor (token, expiry, 401) |
 
-Testcontainers caught a real schema mismatch (`CHAR` columns against `String` fields) that unit tests could not see.
+Testcontainers caught a real schema mismatch (`CHAR` columns against `String` fields) that unit tests could not see. The simulator is driven step by step in tests (`tick()`), with its rates set to 0 or 1, so platform scenarios are deterministic.
 
 ## Run locally
 
@@ -88,7 +104,24 @@ npm install
 npx ng serve
 ```
 
-Then open http://localhost:4200, fill in **Mon entreprise**, add a customer and create an invoice.
+Open http://localhost:4200 and sign in with a demo account (password `demo1234`):
+
+| Account | Role |
+|---|---|
+| `gerant@demo.fr` | Manager: everything |
+| `comptable@demo.fr` | Accountant: read access, payments, credit notes |
+
+Then fill in **Mon entreprise**, add a customer, create and issue an invoice, and submit it to the platform: its status moves every 5 seconds.
+
+Configuration (environment variables):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `JWT_SECRET` | development value | HS256 signing key, at least 32 bytes. **Set it in any deployed environment.** |
+| `DEMO_USERS` | `true` | Create the two demo accounts at startup |
+| `DATABASE_URL`, `DATABASE_USER`, `DATABASE_PASSWORD` | local Docker database | PostgreSQL connection |
+
+The simulator's pace and rates are set in `application.properties` (`app.platform.simulator.*`).
 
 Run the tests:
 
@@ -99,30 +132,39 @@ cd frontend && npx ng test --watch=false
 
 ## API
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` `PUT` | `/api/company` | Seller profile |
-| `GET` `POST` | `/api/customers` | List, create customers |
-| `GET` `PUT` | `/api/customers/{id}` | Read, update a customer |
-| `GET` | `/api/invoices?status=` | List invoices, optionally by status |
-| `POST` | `/api/invoices` | Create a draft |
-| `GET` `PUT` `DELETE` | `/api/invoices/{id}` | Read, edit or delete a draft |
-| `POST` | `/api/invoices/{id}/issue` | Issue: assigns the number, freezes the invoice |
-| `POST` | `/api/invoices/{id}/credit-note` | Create a credit note cancelling an issued invoice |
-| `GET` | `/api/invoices/{id}/facturx` | Download the Factur-X PDF |
+All endpoints except login require a bearer token.
+
+| Method | Path | Role | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/login` | public | Returns a JWT |
+| `GET` | `/api/auth/me` | any | Current user and role |
+| `GET` | `/api/dashboard?year=` | any | Yearly figures and items needing action |
+| `GET` / `PUT` | `/api/company` | any / manager | Seller profile |
+| `GET` / `POST` | `/api/customers` | any / manager | List, create customers |
+| `GET` / `PUT` | `/api/customers/{id}` | any / manager | Read, update a customer |
+| `GET` | `/api/invoices?status=` | any | List invoices, optionally by status |
+| `POST` | `/api/invoices` | manager | Create a draft |
+| `GET` / `PUT` `DELETE` | `/api/invoices/{id}` | any / manager | Read, edit or delete a draft |
+| `POST` | `/api/invoices/{id}/issue` | manager, or accountant for a credit note | Issue: assigns the number, freezes the document |
+| `POST` | `/api/invoices/{id}/credit-note` | manager, accountant | Create a credit note cancelling an issued invoice |
+| `GET` | `/api/invoices/{id}/facturx` | any | Download the Factur-X PDF |
+| `GET` / `POST` | `/api/invoices/{id}/submission` | any / manager | Latest platform submission with its history; submit |
+| `POST` | `/api/invoices/{id}/submission/payment` | manager, accountant | Declare the invoice paid (*encaissée*) |
+| `GET` | `/api/submissions/latest-statuses` | any | Latest platform status of each invoice |
 
 ## Roadmap
 
-- **Simulated registered platform**: submission, statuses (submitted, rejected, accepted, paid) with simulated rejections
-- **Spring Security with JWT**, manager and accountant roles
-- **Kafka** events on status changes
+- **Kafka** for platform notifications, with a transactional **outbox** (see limitations)
 - **Supplier invoices**: import a Factur-X file and read its XML
 - Docker images, GitHub Actions CI, online demo
 
 ## Limitations
 
+- **Submission is not atomic with the platform call.** If the platform accepts a file and the database write then fails, the platform knows a submission we do not. The standard fix is a transactional outbox, planned with Kafka.
+- The simulator keeps its state in memory: pending submissions are lost on restart.
 - One instance serves a single issuing company.
 - The PDF is Mustang's standard rendering of the invoice data, not a branded layout.
 - The buyer's electronic invoicing address, used by the reform to route invoices between platforms, is not handled yet.
+- JWTs are stored in `sessionStorage`: closing the tab ends the session. They cannot be revoked before they expire (8 hours).
 
 The full specification (in French) is in [docs/CAHIER_DES_CHARGES.md](docs/CAHIER_DES_CHARGES.md).

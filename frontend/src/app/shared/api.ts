@@ -68,8 +68,9 @@ export class Api {
     return this.http.post<Invoice>(`/api/invoices/${id}/credit-note`, null);
   }
 
-  facturXUrl(id: number): string {
-    return `/api/invoices/${id}/facturx`;
+  /** Fetched through HttpClient (not a plain link) so the request carries the bearer token. */
+  downloadFacturX(id: number): Observable<Blob> {
+    return this.http.get(`/api/invoices/${id}/facturx`, { responseType: 'blob' });
   }
 }
 

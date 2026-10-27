@@ -1,6 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
 import { Company } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
@@ -11,6 +12,9 @@ import { ErrorAlert } from '../shared/error-alert';
   template: `
     <h1>Mon entreprise</h1>
     <p class="muted">Ces informations apparaissent sur chaque facture émise.</p>
+    @if (!isManager()) {
+      <p class="muted">Seul le gérant peut modifier ces informations.</p>
+    }
 
     <app-error-alert [error]="error()" />
     @if (saved()) {
@@ -31,14 +35,17 @@ import { ErrorAlert } from '../shared/error-alert';
         <textarea formControlName="paymentTerms" rows="3"></textarea>
         <small class="muted">Délai, pénalités de retard et indemnité forfaitaire de 40 € : mentions obligatoires.</small>
       </label>
+      @if (isManager()) {
       <div class="actions span-2">
         <button type="submit" class="primary" [disabled]="form.invalid || saving()">Enregistrer</button>
       </div>
+      }
     </form>
   `,
 })
 export class CompanyPage implements OnInit {
   private readonly api = inject(Api);
+  protected readonly isManager = inject(Auth).isManager;
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     legalName: ['', Validators.required],
@@ -60,6 +67,9 @@ export class CompanyPage implements OnInit {
   protected readonly saved = signal(false);
 
   ngOnInit(): void {
+    if (!this.isManager()) {
+      this.form.disable();
+    }
     this.api.getCompany().subscribe({
       next: (company) => this.form.patchValue({ ...company, email: company.email ?? '', iban: company.iban ?? '' }),
       // 404 simply means the company is not set up yet: keep the empty form.

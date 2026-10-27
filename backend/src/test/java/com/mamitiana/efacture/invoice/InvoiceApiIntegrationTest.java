@@ -19,9 +19,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+/** Business flow as the manager; role rules are covered by SecurityIntegrationTest. */
+@WithMockUser(roles = "MANAGER")
 class InvoiceApiIntegrationTest extends IntegrationTest {
 
     private static final int YEAR = LocalDate.now(ZoneId.of("Europe/Paris")).getYear();

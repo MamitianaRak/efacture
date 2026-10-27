@@ -1,41 +1,56 @@
 import { Routes } from '@angular/router';
+import { loggedIn, managerOnly } from './auth/auth.guards';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'factures' },
   {
-    path: 'factures',
-    title: 'Factures',
-    loadComponent: () => import('./invoices/invoice-list').then((m) => m.InvoiceList),
+    path: 'connexion',
+    title: 'Connexion',
+    loadComponent: () => import('./auth/login-page').then((m) => m.LoginPage),
   },
   {
-    path: 'factures/nouvelle',
-    title: 'Nouvelle facture',
-    loadComponent: () => import('./invoices/invoice-editor').then((m) => m.InvoiceEditor),
-  },
-  {
-    path: 'factures/:id',
-    title: 'Facture',
-    loadComponent: () => import('./invoices/invoice-editor').then((m) => m.InvoiceEditor),
-  },
-  {
-    path: 'clients',
-    title: 'Clients',
-    loadComponent: () => import('./customers/customer-list').then((m) => m.CustomerList),
-  },
-  {
-    path: 'clients/nouveau',
-    title: 'Nouveau client',
-    loadComponent: () => import('./customers/customer-form').then((m) => m.CustomerForm),
-  },
-  {
-    path: 'clients/:id',
-    title: 'Client',
-    loadComponent: () => import('./customers/customer-form').then((m) => m.CustomerForm),
-  },
-  {
-    path: 'entreprise',
-    title: 'Mon entreprise',
-    loadComponent: () => import('./company/company-page').then((m) => m.CompanyPage),
+    path: '',
+    canActivateChild: [loggedIn],
+    children: [
+      { path: '', pathMatch: 'full', redirectTo: 'factures' },
+      {
+        path: 'factures',
+        title: 'Factures',
+        loadComponent: () => import('./invoices/invoice-list').then((m) => m.InvoiceList),
+      },
+      {
+        path: 'factures/nouvelle',
+        title: 'Nouvelle facture',
+        canActivate: [managerOnly],
+        loadComponent: () => import('./invoices/invoice-editor').then((m) => m.InvoiceEditor),
+      },
+      {
+        path: 'factures/:id',
+        title: 'Facture',
+        loadComponent: () => import('./invoices/invoice-editor').then((m) => m.InvoiceEditor),
+      },
+      {
+        path: 'clients',
+        title: 'Clients',
+        loadComponent: () => import('./customers/customer-list').then((m) => m.CustomerList),
+      },
+      {
+        path: 'clients/nouveau',
+        title: 'Nouveau client',
+        canActivate: [managerOnly],
+        loadComponent: () => import('./customers/customer-form').then((m) => m.CustomerForm),
+      },
+      {
+        path: 'clients/:id',
+        title: 'Client',
+        canActivate: [managerOnly],
+        loadComponent: () => import('./customers/customer-form').then((m) => m.CustomerForm),
+      },
+      {
+        path: 'entreprise',
+        title: 'Mon entreprise',
+        loadComponent: () => import('./company/company-page').then((m) => m.CompanyPage),
+      },
+    ],
   },
   { path: '**', redirectTo: 'factures' },
 ];

@@ -355,3 +355,11 @@ table.lines {
     width: auto;
   }
 }
+
+.topbar .session {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 0.9rem;
+}

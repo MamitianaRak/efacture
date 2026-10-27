@@ -102,11 +102,14 @@
       <button type="button" class="danger" (click)="deleteDraft()" [disabled]="busy()">Supprimer le brouillon</button>
     }
     <button type="button" (click)="save()" [disabled]="form.invalid || busy()">Enregistrer le brouillon</button>
+  }
+  @if (canIssue()) {
     <button type="button" class="primary" (click)="issue()" [disabled]="form.invalid || busy()">Émettre</button>
-  } @else if (current) {
-    @if (current.type === 'INVOICE') {
+  }
+  @if (current?.status === 'ISSUED') {
+    @if (current?.type === 'INVOICE') {
       <button type="button" class="danger" (click)="createCreditNote()" [disabled]="busy()">Créer un avoir</button>
     }
-    <a class="button primary" [href]="facturXUrl(current)" download>Télécharger le Factur-X</a>
+    <button type="button" class="primary" (click)="downloadFacturX(current!)">Télécharger le Factur-X</button>
   }
 </div>

@@ -1,6 +1,7 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
 import { InvoiceStatus, InvoiceSummary } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
@@ -12,7 +13,9 @@ import { StatusBadge } from './status-badge';
   template: `
     <div class="page-header">
       <h1>Factures</h1>
-      <a routerLink="/factures/nouvelle" class="button primary">Nouvelle facture</a>
+      @if (isManager()) {
+        <a routerLink="/factures/nouvelle" class="button primary">Nouvelle facture</a>
+      }
     </div>
 
     <div class="filters" role="group" aria-label="Filtrer par statut">
@@ -51,6 +54,7 @@ import { StatusBadge } from './status-badge';
 })
 export class InvoiceList {
   private readonly api = inject(Api);
+  protected readonly isManager = inject(Auth).isManager;
   protected readonly invoices = signal<InvoiceSummary[]>([]);
   protected readonly status = signal<InvoiceStatus | undefined>(undefined);
   protected readonly error = signal<ApiError | null>(null);

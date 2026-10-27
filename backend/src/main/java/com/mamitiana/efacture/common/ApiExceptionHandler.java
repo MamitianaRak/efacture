@@ -4,6 +4,8 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -33,6 +35,17 @@ public class ApiExceptionHandler {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
         problem.setProperty("violations", e.getViolations());
         return problem;
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    ProblemDetail badCredentials() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "E-mail ou mot de passe incorrect");
+    }
+
+    /** Raised by {@code @PreAuthorize} when the user's role does not allow the action. */
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail forbidden() {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, "Votre rôle ne permet pas cette action");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

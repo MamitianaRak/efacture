@@ -3,6 +3,7 @@ package com.mamitiana.efacture.company;
 import com.mamitiana.efacture.common.Address;
 import com.mamitiana.efacture.common.NotFoundException;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -27,6 +28,7 @@ public class CompanyController {
                 .orElseThrow(() -> new NotFoundException("L'entreprise émettrice n'est pas encore renseignée"));
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @PutMapping
     @Transactional
     public CompanyResponse save(@Valid @RequestBody CompanyRequest request) {

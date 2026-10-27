@@ -1,22 +1,23 @@
+import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
+    sessionStorage.clear();
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), provideHttpClient()],
     }).compileComponents();
   });
 
-  it('shows the navigation and the demo disclaimer', async () => {
+  it('hides the navigation until the user is logged in', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const page = fixture.nativeElement as HTMLElement;
 
-    const links = [...page.querySelectorAll('nav a')].map((a) => a.textContent?.trim());
-    expect(links).toEqual(['Factures', 'Clients', 'Mon entreprise']);
+    expect(page.querySelector('nav')).toBeNull();
     expect(page.querySelector('footer')?.textContent).toContain('démonstration');
   });
 });

@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,23 +39,28 @@ public class InvoiceController {
         return service.get(id);
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceResponse createDraft(@Valid @RequestBody InvoiceRequest request) {
         return service.createDraft(request);
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @PutMapping("/{id}")
     public InvoiceResponse updateDraft(@PathVariable Long id, @Valid @RequestBody InvoiceRequest request) {
         return service.updateDraft(id, request);
     }
 
+    @PreAuthorize("hasRole('MANAGER')")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteDraft(@PathVariable Long id) {
         service.deleteDraft(id);
     }
 
+    /** The accountant may issue credit notes only; invoices are issued by the manager. */
+    @PreAuthorize("hasRole('MANAGER') or @invoiceAccess.isCreditNote(#id)")
     @PostMapping("/{id}/issue")
     public InvoiceResponse issue(@PathVariable Long id) {
         return service.issue(id);
@@ -70,6 +76,7 @@ public class InvoiceController {
                 .body(file.content());
     }
 
+    @PreAuthorize("hasAnyRole('MANAGER', 'ACCOUNTANT')")
     @PostMapping("/{id}/credit-note")
     @ResponseStatus(HttpStatus.CREATED)
     public InvoiceResponse createCreditNote(@PathVariable Long id) {

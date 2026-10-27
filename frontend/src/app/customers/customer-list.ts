@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
 import { Customer } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
@@ -10,7 +11,9 @@ import { ErrorAlert } from '../shared/error-alert';
   template: `
     <div class="page-header">
       <h1>Clients</h1>
-      <a routerLink="/clients/nouveau" class="button primary">Nouveau client</a>
+      @if (isManager()) {
+        <a routerLink="/clients/nouveau" class="button primary">Nouveau client</a>
+      }
     </div>
 
     <app-error-alert [error]="error()" />
@@ -34,7 +37,11 @@ import { ErrorAlert } from '../shared/error-alert';
                 }
               </td>
               <td>{{ customer.postalCode }} {{ customer.city }}</td>
-              <td class="right"><a [routerLink]="['/clients', customer.id]">Modifier</a></td>
+              <td class="right">
+                @if (isManager()) {
+                  <a [routerLink]="['/clients', customer.id]">Modifier</a>
+                }
+              </td>
             </tr>
           }
         </tbody>
@@ -44,6 +51,7 @@ import { ErrorAlert } from '../shared/error-alert';
 })
 export class CustomerList implements OnInit {
   private readonly api = inject(Api);
+  protected readonly isManager = inject(Auth).isManager;
   protected readonly customers = signal<Customer[]>([]);
   protected readonly error = signal<ApiError | null>(null);
 

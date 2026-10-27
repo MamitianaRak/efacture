@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Observable, switchMap } from 'rxjs';
+import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
 import { Customer, Invoice, InvoiceRequest, VAT_RATES } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
@@ -40,7 +41,7 @@ export class InvoiceEditor implements OnInit {
   /** Live preview while editing; issued invoices show the server's figures. */
   protected readonly totals = computed(() => {
     const invoice = this.invoice();
-    if (invoice?.status === 'ISSUED') {
+    if (invoice && !this.editable()) {
       return invoice;
     }
     const lines = (this.formValue().lines ?? []).map((l) => ({
@@ -51,7 +52,16 @@ export class InvoiceEditor implements OnInit {
     return computeTotals(lines);
   });
 
-  protected readonly editable = computed(() => this.invoice()?.status !== 'ISSUED');
+  protected readonly isManager = inject(Auth).isManager;
+
+  /** Drafts are edited by the manager; the accountant only works on credit notes. */
+  protected readonly editable = computed(() => this.invoice()?.status !== 'ISSUED' && this.isManager());
+
+  /** The accountant may issue a credit note draft, but not an invoice. */
+  protected readonly canIssue = computed(() => {
+    const invoice = this.invoice();
+    return invoice?.status !== 'ISSUED' && (this.isManager() || invoice?.type === 'CREDIT_NOTE');
+  });
 
   ngOnInit(): void {
     this.api.listCustomers().subscribe((customers) => this.customers.set(customers));
@@ -84,6 +94,12 @@ export class InvoiceEditor implements OnInit {
 
   /** Saves pending edits first, so what gets issued is exactly what is on screen. */
   issue(): void {
+    const current = this.invoice();
+    if (current && !this.editable()) {
+      // Read-only for this user (accountant on a credit note): nothing to save.
+      this.run(this.api.issue(current.id));
+      return;
+    }
     this.run(this.saveDraft().pipe(switchMap((draft) => this.api.issue(draft.id))));
   }
 
@@ -111,8 +127,18 @@ export class InvoiceEditor implements OnInit {
     });
   }
 
-  facturXUrl(invoice: Invoice): string {
-    return this.api.facturXUrl(invoice.id);
+  downloadFacturX(invoice: Invoice): void {
+    this.api.downloadFacturX(invoice.id).subscribe({
+      next: (pdf) => {
+        const url = URL.createObjectURL(pdf);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${invoice.number}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (e: unknown) => this.error.set(toApiError(e)),
+    });
   }
 
   private saveDraft(): Observable<Invoice> {
@@ -154,7 +180,7 @@ export class InvoiceEditor implements OnInit {
       this.lines.push(this.newLine(line));
     }
     this.form.patchValue({ customerId: invoice.customerId, dueDate: invoice.dueDate ?? '' });
-    if (invoice.status === 'ISSUED') {
+    if (!this.editable()) {
       this.form.disable();
     }
   }

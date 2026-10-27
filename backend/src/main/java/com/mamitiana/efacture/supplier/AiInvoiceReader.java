@@ -49,7 +49,15 @@ public class AiInvoiceReader {
             - Montants : nombres décimaux avec un point, sans symbole ni espace (1234.50).
             - Dates : format AAAA-MM-JJ.
             - SIREN : 9 chiffres sans espace. Si seul le SIRET (14 chiffres) figure, prends ses 9 premiers chiffres.
-            - IBAN et numéro de TVA : sans espaces.
+            - IBAN : uniquement celui du fournisseur, donné pour le payer, recopié sans espaces. Si aucun IBAN
+              n'est imprimé, laisse null. Ne prends jamais l'IBAN du client (mandat de prélèvement).
+            - Numéro de TVA : sans espaces.
+            - Moyen de paiement : TRANSFER (virement), DIRECT_DEBIT (prélèvement), CARD (carte), CHEQUE, CASH
+              (espèces), ALREADY_PAID si la facture est marquée payée ou acquittée, sinon UNKNOWN.
+              « Au comptant » signifie payable immédiatement : ce n'est pas un moyen de paiement, et surtout pas
+              des espèces. Ne choisis CASH que si les espèces sont explicitement mentionnées.
+            - Lignes : si la quantité ou le prix unitaire ne sont pas imprimés, laisse-les null ; ne les déduis
+              pas du montant.
             - Taux de TVA en pourcentage : 20 pour 20 %.
             - Le texte extrait du PDF, quand il est fourni, est exact : utilise-le pour les chiffres. L'image sert
               à comprendre la mise en page.
@@ -63,24 +71,28 @@ public class AiInvoiceReader {
         this.gateway = gateway;
     }
 
-    public LlmResult<ExtractedInvoice> read(byte[] content, String contentType) {
+    /** The model's reading, and the document's text layer (empty for a scan) to check it against. */
+    public record Reading(LlmResult<ExtractedInvoice> result, String documentText) {
+    }
+
+    public Reading read(byte[] content, String contentType) {
         Document document = prepare(content, contentType);
         try {
-            return gateway.call(LlmLane.DOCUMENT, client -> client.prompt()
+            return new Reading(gateway.call(LlmLane.DOCUMENT, client -> client.prompt()
                     .system(INSTRUCTIONS)
                     .user(user -> user.text(userText(document)).media(document.images().toArray(Media[]::new)))
                     .call()
-                    .entity(ExtractedInvoice.class));
+                    .entity(ExtractedInvoice.class)), document.text());
         } catch (LlmUnavailableException e) {
             if (document.text().length() < MIN_USEFUL_TEXT) {
                 throw e;
             }
             log.warn("No document model available, reading the PDF text layer with a text model");
-            return gateway.call(LlmLane.REASONING, client -> client.prompt()
+            return new Reading(gateway.call(LlmLane.REASONING, client -> client.prompt()
                     .system(INSTRUCTIONS)
                     .user(userText(document))
                     .call()
-                    .entity(ExtractedInvoice.class));
+                    .entity(ExtractedInvoice.class)), document.text());
         }
     }
 

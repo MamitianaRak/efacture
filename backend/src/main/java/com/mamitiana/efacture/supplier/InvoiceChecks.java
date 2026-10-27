@@ -26,8 +26,24 @@ public class InvoiceChecks {
     public record Issue(String code, Severity severity, String message) {
     }
 
+    /**
+     * The document's text layer, to verify that identifiers really appear on it. {@code readByModel} is false once
+     * a person has corrected the data: a value they typed is their responsibility, not a model's invention.
+     */
+    public record Grounding(String documentText, boolean readByModel) {
+
+        public static Grounding none() {
+            return new Grounding(null, false);
+        }
+    }
+
     public List<Issue> check(ExtractedInvoice invoice, boolean duplicate) {
+        return check(invoice, duplicate, Grounding.none());
+    }
+
+    public List<Issue> check(ExtractedInvoice invoice, boolean duplicate, Grounding grounding) {
         List<Issue> issues = new ArrayList<>();
+        checkGrounding(invoice, grounding, issues);
 
         require(issues, invoice.supplierName(), "Raison sociale du fournisseur");
         require(issues, invoice.invoiceNumber(), "Numéro de facture");
@@ -68,11 +84,50 @@ public class InvoiceChecks {
         }
 
         String iban = invoice.supplierIban();
+        boolean transfer = invoice.paymentMeans() == ExtractedInvoice.PaymentMeans.TRANSFER;
         if (iban == null || iban.isBlank()) {
-            issues.add(warning("MISSING_IBAN", "Coordonnées bancaires absentes"));
+            // Paid by direct debit, card or already paid: no IBAN is expected, so its absence is not a problem.
+            if (transfer) {
+                issues.add(warning("MISSING_IBAN", "Paiement par virement attendu, mais aucun IBAN sur la facture"));
+            }
         } else if (!Iban.isValid(iban)) {
             issues.add(error("INVALID_IBAN", "IBAN invalide : clé de contrôle incorrecte, probablement mal lu"));
+        } else if (invoice.paymentMeans() == ExtractedInvoice.PaymentMeans.DIRECT_DEBIT) {
+            issues.add(warning("IBAN_ON_DIRECT_DEBIT",
+                    "Facture prélevée : l'IBAN imprimé est souvent celui du client (mandat), pas celui du fournisseur"));
         }
+    }
+
+    /**
+     * Each identifier must appear in the document's text. A model can return a perfectly formatted value that is
+     * not on the page at all (a real case: an IBAN made up for an invoice that had none); checksums alone would
+     * not catch an invented value that happens to be valid. Compared without spaces or punctuation, so a SIREN is
+     * also found inside a SIRET.
+     */
+    private static void checkGrounding(ExtractedInvoice invoice, Grounding grounding, List<Issue> issues) {
+        if (grounding.documentText() == null || grounding.documentText().isBlank()) {
+            return;
+        }
+        String document = compact(grounding.documentText());
+        ground(document, invoice.supplierIban(), "IBAN_NOT_IN_DOCUMENT", "IBAN", grounding.readByModel(), issues);
+        ground(document, invoice.supplierSiren(), "SIREN_NOT_IN_DOCUMENT", "SIREN", grounding.readByModel(), issues);
+        ground(document, invoice.supplierVatNumber(), "VAT_NOT_IN_DOCUMENT", "N° de TVA", grounding.readByModel(), issues);
+        ground(document, invoice.invoiceNumber(), "NUMBER_NOT_IN_DOCUMENT", "N° de facture", grounding.readByModel(), issues);
+    }
+
+    private static void ground(String document, String value, String code, String label, boolean readByModel,
+                               List<Issue> issues) {
+        if (value == null || value.isBlank() || document.contains(compact(value))) {
+            return;
+        }
+        issues.add(readByModel
+                ? error(code, label + " « " + value + " » introuvable sur le document : probablement inventé par l'IA")
+                : warning(code, label + " « " + value + " » saisi à la main et absent du document : "
+                        + "vérifiez-le auprès du fournisseur, par un canal déjà connu"));
+    }
+
+    private static String compact(String text) {
+        return text.toUpperCase().replaceAll("[^A-Z0-9]", "");
     }
 
     private static void checkAmounts(ExtractedInvoice invoice, List<Issue> issues) {

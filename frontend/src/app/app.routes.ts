@@ -51,6 +51,16 @@ export const routes: Routes = [
         loadComponent: () => import('./customers/customer-form').then((m) => m.CustomerForm),
       },
       {
+        path: 'fournisseurs',
+        title: 'Factures fournisseurs',
+        loadComponent: () => import('./suppliers/supplier-invoice-list').then((m) => m.SupplierInvoiceList),
+      },
+      {
+        path: 'fournisseurs/:id',
+        title: 'Facture fournisseur',
+        loadComponent: () => import('./suppliers/supplier-invoice-review').then((m) => m.SupplierInvoiceReview),
+      },
+      {
         path: 'entreprise',
         title: 'Mon entreprise',
         loadComponent: () => import('./company/company-page').then((m) => m.CompanyPage),

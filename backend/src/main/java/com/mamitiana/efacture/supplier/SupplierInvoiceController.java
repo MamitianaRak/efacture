@@ -59,8 +59,8 @@ public class SupplierInvoiceController {
     }
 
     @PutMapping("/{id}")
-    public SupplierInvoiceResponse correct(@PathVariable Long id, @RequestBody ExtractedInvoice corrected) {
-        return service.correct(id, corrected);
+    public SupplierInvoiceResponse correct(@PathVariable Long id, @RequestBody ExtractedInvoice corrected, Principal user) {
+        return service.correct(id, corrected, user.getName());
     }
 
     @PostMapping("/{id}/validate")

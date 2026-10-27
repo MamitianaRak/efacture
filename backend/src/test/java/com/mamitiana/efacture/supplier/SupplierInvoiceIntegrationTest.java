@@ -66,7 +66,8 @@ class SupplierInvoiceIntegrationTest extends IntegrationTest {
     void misreadIbanIsCaughtCorrectedThenValidated() throws Exception {
         ExtractedInvoice misread = withIban(InvoiceChecksTest.valid(), "FR7630006000011234567890188");
         when(aiReader.read(any(), eq("application/pdf")))
-                .thenReturn(new LlmResult<>(misread, "gemini", "gemini-3.5-flash", Duration.ofMillis(1800), 1));
+                .thenReturn(new AiInvoiceReader.Reading(
+                        new LlmResult<>(misread, "gemini", "gemini-3.5-flash", Duration.ofMillis(1800), 1), ""));
 
         String body = upload(pdf("facture-imprimerie.pdf", TestPdfs.sampleInvoice()));
         int id = JsonPath.read(body, "$.id");
@@ -114,13 +115,13 @@ class SupplierInvoiceIntegrationTest extends IntegrationTest {
     }
 
     private static ExtractedInvoice withIban(ExtractedInvoice v, String iban) {
-        return new ExtractedInvoice(v.supplierName(), v.supplierSiren(), v.supplierVatNumber(), iban, v.invoiceNumber(),
+        return new ExtractedInvoice(v.supplierName(), v.supplierSiren(), v.supplierVatNumber(), iban, v.paymentMeans(), v.invoiceNumber(),
                 v.issueDate(), v.dueDate(), v.currency(), v.lines(), v.totalNet(), v.totalVat(), v.totalGross());
     }
 
     private static String json(ExtractedInvoice v) {
         return """
-                {"supplierName": "%s", "supplierSiren": "%s", "supplierVatNumber": "%s", "supplierIban": "%s",
+                {"supplierName": "%s", "supplierSiren": "%s", "supplierVatNumber": "%s", "supplierIban": "%s", "paymentMeans": "TRANSFER",
                  "invoiceNumber": "%s", "issueDate": "%s", "dueDate": "%s", "currency": "EUR",
                  "lines": [{"description": "Flyers A5", "quantity": 1, "unitPrice": 250.00, "vatRate": 20, "netAmount": 250.00},
                            {"description": "Cartes de visite", "quantity": 2, "unitPrice": 45.00, "vatRate": 20, "netAmount": 90.00}],

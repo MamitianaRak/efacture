@@ -81,6 +81,90 @@ export interface InvoiceRequest {
 
 export const VAT_RATES = [20, 10, 5.5, 2.1, 0] as const;
 
+export type PaymentMeans = 'TRANSFER' | 'DIRECT_DEBIT' | 'CARD' | 'CHEQUE' | 'CASH' | 'ALREADY_PAID' | 'UNKNOWN';
+
+export const PAYMENT_MEANS_LABELS: Record<PaymentMeans, string> = {
+  TRANSFER: 'Virement',
+  DIRECT_DEBIT: 'Prélèvement',
+  CARD: 'Carte bancaire',
+  CHEQUE: 'Chèque',
+  CASH: 'Espèces',
+  ALREADY_PAID: 'Déjà payée',
+  UNKNOWN: 'Non précisé',
+};
+
+export interface ExtractedInvoice {
+  supplierName: string | null;
+  supplierSiren: string | null;
+  supplierVatNumber: string | null;
+  supplierIban: string | null;
+  paymentMeans: PaymentMeans;
+  invoiceNumber: string | null;
+  issueDate: string | null;
+  dueDate: string | null;
+  currency: string | null;
+  lines: {
+    description: string | null;
+    quantity: number | null;
+    unitPrice: number | null;
+    vatRate: number | null;
+    netAmount: number | null;
+  }[];
+  totalNet: number | null;
+  totalVat: number | null;
+  totalGross: number | null;
+}
+
+export type SupplierInvoiceStatus = 'NEEDS_REVIEW' | 'CHECKED' | 'VALIDATED' | 'REJECTED';
+export type SupplierInvoiceSource = 'FACTURX' | 'AI' | 'MANUAL';
+
+export interface InvoiceIssue {
+  code: string;
+  severity: 'ERROR' | 'WARNING';
+  message: string;
+}
+
+export interface SupplierInvoice {
+  id: number;
+  status: SupplierInvoiceStatus;
+  source: SupplierInvoiceSource;
+  fileName: string;
+  data: ExtractedInvoice;
+  issues: InvoiceIssue[];
+  extraction: { provider: string; model: string; durationMs: number } | null;
+  receivedBy: string;
+  receivedAt: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+}
+
+export interface SupplierInvoiceSummary {
+  id: number;
+  status: SupplierInvoiceStatus;
+  source: SupplierInvoiceSource;
+  supplierName: string | null;
+  invoiceNumber: string | null;
+  issueDate: string | null;
+  dueDate: string | null;
+  totalGross: number | null;
+  errorCount: number;
+  receivedAt: string;
+}
+
+export const SUPPLIER_STATUS_LABELS: Record<SupplierInvoiceStatus, string> = {
+  NEEDS_REVIEW: 'À vérifier',
+  CHECKED: 'Contrôlée',
+  VALIDATED: 'Validée',
+  REJECTED: 'Rejetée',
+};
+
+export const SOURCE_LABELS: Record<SupplierInvoiceSource, string> = {
+  FACTURX: 'Factur-X',
+  AI: 'Lue par IA',
+  MANUAL: 'Saisie manuelle',
+};
+
 export interface Dashboard {
   year: number;
   revenueNet: number;

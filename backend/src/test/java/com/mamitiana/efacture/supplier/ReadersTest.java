@@ -58,7 +58,7 @@ class ReadersTest {
         AiInvoiceReader reader = new AiInvoiceReader(gateway(Map.of(
                 LlmLane.DOCUMENT, List.of(new LlmCandidate("gemini", "vision", ChatClient.create(model))))));
 
-        LlmResult<ExtractedInvoice> result = reader.read(TestPdfs.sampleInvoice(), "application/pdf");
+        LlmResult<ExtractedInvoice> result = reader.read(TestPdfs.sampleInvoice(), "application/pdf").result();
 
         assertThat(result.value().invoiceNumber()).isEqualTo("IC-2026-0417");
         assertThat(result.value().issueDate()).hasToString("2026-10-12");
@@ -76,7 +76,7 @@ class ReadersTest {
                 LlmLane.DOCUMENT, List.of(new LlmCandidate("gemini", "vision", ChatClient.create(ScriptedChatModel.failing("503")))),
                 LlmLane.REASONING, List.of(new LlmCandidate("groq", "text", ChatClient.create(textModel))))));
 
-        LlmResult<ExtractedInvoice> result = reader.read(TestPdfs.sampleInvoice(), "application/pdf");
+        LlmResult<ExtractedInvoice> result = reader.read(TestPdfs.sampleInvoice(), "application/pdf").result();
 
         assertThat(result.provider()).isEqualTo("groq");
         assertThat(textModel.lastPrompt().getUserMessages().getLast().getMedia()).isEmpty();

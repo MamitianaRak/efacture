@@ -14,6 +14,7 @@ const ROLE_LABELS = { MANAGER: 'Gérant', ACCOUNTANT: 'Comptable' } as const;
         <nav>
           <a routerLink="/tableau-de-bord" routerLinkActive="active">Tableau de bord</a>
           <a routerLink="/factures" routerLinkActive="active">Factures</a>
+          <a routerLink="/fournisseurs" routerLinkActive="active">Fournisseurs</a>
           <a routerLink="/clients" routerLinkActive="active">Clients</a>
           <a routerLink="/entreprise" routerLinkActive="active">Mon entreprise</a>
         </nav>

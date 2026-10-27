@@ -6,12 +6,15 @@ import {
   Customer,
   CustomerRequest,
   Dashboard,
+  ExtractedInvoice,
   Invoice,
   InvoiceRequest,
   InvoiceStatus,
   InvoiceSummary,
   PlatformStatus,
   Submission,
+  SupplierInvoice,
+  SupplierInvoiceSummary,
 } from './api.models';
 
 @Injectable({ providedIn: 'root' })
@@ -69,6 +72,36 @@ export class Api {
 
   createCreditNote(id: number): Observable<Invoice> {
     return this.http.post<Invoice>(`/api/invoices/${id}/credit-note`, null);
+  }
+
+  listSupplierInvoices(): Observable<SupplierInvoiceSummary[]> {
+    return this.http.get<SupplierInvoiceSummary[]>('/api/supplier-invoices');
+  }
+
+  getSupplierInvoice(id: number): Observable<SupplierInvoice> {
+    return this.http.get<SupplierInvoice>(`/api/supplier-invoices/${id}`);
+  }
+
+  uploadSupplierInvoice(file: File): Observable<SupplierInvoice> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<SupplierInvoice>('/api/supplier-invoices', form);
+  }
+
+  supplierInvoiceFile(id: number): Observable<Blob> {
+    return this.http.get(`/api/supplier-invoices/${id}/file`, { responseType: 'blob' });
+  }
+
+  correctSupplierInvoice(id: number, data: ExtractedInvoice): Observable<SupplierInvoice> {
+    return this.http.put<SupplierInvoice>(`/api/supplier-invoices/${id}`, data);
+  }
+
+  validateSupplierInvoice(id: number): Observable<SupplierInvoice> {
+    return this.http.post<SupplierInvoice>(`/api/supplier-invoices/${id}/validate`, null);
+  }
+
+  rejectSupplierInvoice(id: number, reason: string): Observable<SupplierInvoice> {
+    return this.http.post<SupplierInvoice>(`/api/supplier-invoices/${id}/reject`, { reason });
   }
 
   getDashboard(year: number): Observable<Dashboard> {

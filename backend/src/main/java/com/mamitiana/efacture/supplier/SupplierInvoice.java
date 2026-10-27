@@ -71,6 +71,10 @@ public class SupplierInvoice {
     private String supplierSiren;
     private String supplierVatNumber;
     private String supplierIban;
+
+    @Enumerated(EnumType.STRING)
+    private ExtractedInvoice.PaymentMeans paymentMeans = ExtractedInvoice.PaymentMeans.UNKNOWN;
+
     private String invoiceNumber;
     private LocalDate issueDate;
     private LocalDate dueDate;
@@ -82,6 +86,12 @@ public class SupplierInvoice {
     private String extractionProvider;
     private String extractionModel;
     private Long extractionMs;
+
+    /** PDF text layer, kept to check that identifiers read by a model are really on the document. */
+    private String documentText;
+
+    private String correctedBy;
+    private Instant correctedAt;
 
     private String receivedBy;
     private Instant receivedAt;
@@ -114,10 +124,22 @@ public class SupplierInvoice {
         return invoice;
     }
 
-    public void recordExtraction(String provider, String model, long durationMs) {
+    public void recordExtraction(String provider, String model, long durationMs, String documentText) {
         this.extractionProvider = provider;
         this.extractionModel = model;
         this.extractionMs = durationMs;
+        this.documentText = documentText;
+    }
+
+    /** A person changed the data: from now on its values are theirs, not the model's. */
+    public void markCorrected(String by, Instant now) {
+        assertOpen();
+        this.correctedBy = by;
+        this.correctedAt = now;
+    }
+
+    public InvoiceChecks.Grounding grounding() {
+        return new InvoiceChecks.Grounding(documentText, source == Source.AI && correctedBy == null);
     }
 
     /** Replaces the data with what was read, or with a person's corrections. */
@@ -127,6 +149,7 @@ public class SupplierInvoice {
         supplierSiren = data.supplierSiren();
         supplierVatNumber = data.supplierVatNumber();
         supplierIban = Iban.normalize(data.supplierIban());
+        paymentMeans = data.paymentMeans();
         invoiceNumber = data.invoiceNumber();
         issueDate = data.issueDate();
         dueDate = data.dueDate();
@@ -164,7 +187,7 @@ public class SupplierInvoice {
     }
 
     public ExtractedInvoice data() {
-        return new ExtractedInvoice(supplierName, supplierSiren, supplierVatNumber, supplierIban, invoiceNumber,
+        return new ExtractedInvoice(supplierName, supplierSiren, supplierVatNumber, supplierIban, paymentMeans, invoiceNumber,
                 issueDate, dueDate, currency,
                 lines.stream().map(l -> new ExtractedInvoice.Line(l.getDescription(), l.getQuantity(), l.getUnitPrice(),
                         l.getVatRate(), l.getNetAmount())).toList(),

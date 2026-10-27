@@ -58,16 +58,17 @@ public class SupplierInvoiceService {
 
     private SupplierInvoice readWithModel(String fileName, String contentType, byte[] content, String user) {
         try {
-            LlmResult<ExtractedInvoice> result = ai.read(content, contentType);
+            AiInvoiceReader.Reading reading = ai.read(content, contentType);
+            LlmResult<ExtractedInvoice> result = reading.result();
             SupplierInvoice invoice = SupplierInvoice.received(fileName, contentType, content, SupplierInvoice.Source.AI, user, clock.instant());
             invoice.applyData(result.value());
-            invoice.recordExtraction(result.provider(), result.model(), result.duration().toMillis());
+            invoice.recordExtraction(result.provider(), result.model(), result.duration().toMillis(), reading.documentText());
             return invoice;
         } catch (LlmUnavailableException e) {
             // The file is kept: a person can still enter the invoice by hand.
             log.warn("Supplier invoice {} could not be read by a model: {}", fileName, e.getMessage());
             SupplierInvoice invoice = SupplierInvoice.received(fileName, contentType, content, SupplierInvoice.Source.MANUAL, user, clock.instant());
-            invoice.applyData(new ExtractedInvoice(null, null, null, null, null, null, null, null, List.of(), null, null, null));
+            invoice.applyData(ExtractedInvoice.empty());
             return invoice;
         }
     }
@@ -93,9 +94,10 @@ public class SupplierInvoiceService {
 
     /** A person corrects what was read; every check runs again on the corrected data. */
     @Transactional
-    public SupplierInvoiceResponse correct(Long id, ExtractedInvoice corrected) {
+    public SupplierInvoiceResponse correct(Long id, ExtractedInvoice corrected, String user) {
         SupplierInvoice invoice = load(id);
         invoice.applyData(corrected);
+        invoice.markCorrected(user, clock.instant());
         invoice.applyChecks(runChecks(invoice, id));
         return SupplierInvoiceResponse.from(invoice);
     }
@@ -117,7 +119,7 @@ public class SupplierInvoiceService {
     private List<InvoiceChecks.Issue> runChecks(SupplierInvoice invoice, Long excludedId) {
         boolean duplicate = invoice.getSupplierSiren() != null && invoice.getInvoiceNumber() != null
                 && invoices.existsDuplicate(invoice.getSupplierSiren(), invoice.getInvoiceNumber(), excludedId);
-        return checks.check(invoice.data(), duplicate);
+        return checks.check(invoice.data(), duplicate, invoice.grounding());
     }
 
     private SupplierInvoice load(Long id) {

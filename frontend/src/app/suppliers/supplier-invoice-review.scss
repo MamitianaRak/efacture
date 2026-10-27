@@ -1,0 +1,88 @@
+.review {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.document {
+  padding: 0;
+  overflow: hidden;
+  position: sticky;
+  top: 16px;
+
+  iframe,
+  img {
+    display: block;
+    width: 100%;
+    height: 80vh;
+    border: none;
+    object-fit: contain;
+    background: #fafafa;
+  }
+
+  p {
+    padding: 20px;
+  }
+}
+
+.issues {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+
+  li {
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+  }
+
+  .error {
+    background: #fdecea;
+    color: #8c1d18;
+  }
+
+  .warning {
+    background: var(--warning-bg);
+    color: var(--warning-text);
+  }
+}
+
+input.flagged {
+  border-color: var(--danger);
+  background: #fff6f5;
+}
+
+.lines {
+  margin: 16px 0 8px;
+
+  th,
+  td {
+    padding: 4px;
+  }
+
+  .num {
+    width: 90px;
+  }
+}
+
+.totals-grid {
+  grid-template-columns: repeat(3, 1fr);
+  margin: 12px 0 16px;
+}
+
+@media (max-width: 960px) {
+  .review {
+    grid-template-columns: 1fr;
+  }
+
+  .document {
+    position: static;
+
+    iframe,
+    img {
+      height: 60vh;
+    }
+  }
+}

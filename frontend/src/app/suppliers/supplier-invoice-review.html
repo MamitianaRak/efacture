@@ -1,0 +1,122 @@
+@let current = invoice();
+
+<div class="page-header">
+  <h1>{{ current?.data?.supplierName ?? 'Facture fournisseur' }} {{ current?.data?.invoiceNumber }}</h1>
+  @if (current) {
+    <span class="badge" [class.success]="current.status === 'VALIDATED' || current.status === 'CHECKED'"
+          [class.warning]="current.status === 'NEEDS_REVIEW'" [class.danger]="current.status === 'REJECTED'">
+      {{ statusLabels[current.status] }}
+    </span>
+  }
+</div>
+
+@if (current) {
+  <p class="muted">
+    @switch (current.source) {
+      @case ('FACTURX') { Données lues dans le XML Factur-X, sans IA : elles sont exactes. }
+      @case ('AI') {
+        Données lues par l’IA ({{ current.extraction?.provider }} · {{ current.extraction?.model }},
+        {{ (current.extraction?.durationMs ?? 0) / 1000 | number: '1.1-1' }} s). Vérifiez-les sur le document avant de valider.
+      }
+      @case ('MANUAL') { Aucun modèle n’a pu lire ce fichier : saisissez la facture à partir du document. }
+    }
+  </p>
+  @if (current.status === 'REJECTED') {
+    <p class="muted">Rejetée par {{ current.reviewedBy }} : {{ current.rejectionReason }}</p>
+  } @else if (current.status === 'VALIDATED') {
+    <p class="muted">Validée par {{ current.reviewedBy }}.</p>
+  }
+}
+
+<app-error-alert [error]="error()" />
+
+<div class="review">
+  <section class="card document">
+    @if (fileUrl(); as url) {
+      @if (isImage()) {
+        <img [src]="url" [alt]="current?.fileName" />
+      } @else {
+        <iframe [src]="url" [title]="current?.fileName ?? 'Document'"></iframe>
+      }
+    } @else {
+      <p class="muted">Chargement du document…</p>
+    }
+  </section>
+
+  <section class="card fields">
+    @if (errors().length || warnings().length) {
+      <ul class="issues">
+        @for (issue of errors(); track $index) {
+          <li class="error">{{ issue.message }}</li>
+        }
+        @for (issue of warnings(); track $index) {
+          <li class="warning">{{ issue.message }}</li>
+        }
+      </ul>
+    } @else if (current) {
+      <div class="notice">Tous les contrôles sont passés.</div>
+    }
+
+    <form [formGroup]="form">
+      <div class="form-grid">
+        <label class="span-2">Fournisseur <input formControlName="supplierName" [class.flagged]="flagged('supplierName')" /></label>
+        <label>SIREN <input formControlName="supplierSiren" [class.flagged]="flagged('supplierSiren')" /></label>
+        <label>N° de TVA <input formControlName="supplierVatNumber" [class.flagged]="flagged('supplierVatNumber')" /></label>
+        <label>IBAN <input formControlName="supplierIban" [class.flagged]="flagged('supplierIban')" /></label>
+        <label>
+          Moyen de paiement
+          <select formControlName="paymentMeans">
+            @for (means of paymentMeansOptions; track means) {
+              <option [value]="means">{{ paymentMeansLabels[means] }}</option>
+            }
+          </select>
+        </label>
+        <label>N° de facture <input formControlName="invoiceNumber" [class.flagged]="flagged('invoiceNumber')" /></label>
+        <label>Date <input type="date" formControlName="issueDate" /></label>
+        <label>Échéance <input type="date" formControlName="dueDate" [class.flagged]="flagged('dueDate')" /></label>
+        <label>Devise <input formControlName="currency" /></label>
+      </div>
+
+      <table class="lines">
+        <thead>
+          <tr><th>Désignation</th><th class="num">Qté</th><th class="num">PU HT</th><th class="num">TVA %</th><th class="num">Total HT</th>
+            @if (open()) { <th></th> }
+          </tr>
+        </thead>
+        <tbody formArrayName="lines">
+          @for (line of lines.controls; track line; let i = $index) {
+            <tr [formGroupName]="i">
+              <td><input formControlName="description" /></td>
+              <td class="num"><input type="number" step="any" formControlName="quantity" /></td>
+              <td class="num"><input type="number" step="0.01" formControlName="unitPrice" /></td>
+              <td class="num"><input type="number" step="0.1" formControlName="vatRate" /></td>
+              <td class="num"><input type="number" step="0.01" formControlName="netAmount" /></td>
+              @if (open()) {
+                <td><button type="button" class="link danger" (click)="removeLine(i)" aria-label="Supprimer la ligne">✕</button></td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (open()) {
+        <button type="button" class="link" (click)="addLine()">+ Ajouter une ligne</button>
+      }
+
+      <div class="form-grid totals-grid">
+        <label>Total HT <input type="number" step="0.01" formControlName="totalNet" [class.flagged]="flagged('totalNet')" /></label>
+        <label>TVA <input type="number" step="0.01" formControlName="totalVat" /></label>
+        <label>Total TTC <input type="number" step="0.01" formControlName="totalGross" [class.flagged]="flagged('totalGross')" /></label>
+      </div>
+    </form>
+
+    <div class="actions">
+      <a routerLink="/fournisseurs" class="button">Retour</a>
+      @if (open()) {
+        <button type="button" class="danger" (click)="reject()" [disabled]="busy()">Rejeter</button>
+        <button type="button" (click)="save()" [disabled]="busy()">Enregistrer et recontrôler</button>
+        <button type="button" class="primary" (click)="validate()" [disabled]="busy() || errors().length > 0"
+                [title]="errors().length ? 'Corrigez les erreurs avant de valider' : ''">Valider</button>
+      }
+    </div>
+  </section>
+</div>

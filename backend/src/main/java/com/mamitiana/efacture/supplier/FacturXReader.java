@@ -58,12 +58,15 @@ public class FacturXReader {
         BigDecimal net = totals.getTaxBasis().setScale(2, RoundingMode.HALF_UP);
         BigDecimal gross = totals.getGrandTotal().setScale(2, RoundingMode.HALF_UP);
 
+        BankDetails bank = seller.getBankDetails() == null ? null
+                : seller.getBankDetails().stream().findFirst().orElse(null);
+
         return new ExtractedInvoice(
                 seller.getName(),
                 siren(seller.getLegalOrganisation()),
                 seller.getVATID(),
-                seller.getBankDetails() == null ? null
-                        : seller.getBankDetails().stream().map(BankDetails::getIBAN).findFirst().orElse(null),
+                bank == null ? null : bank.getIBAN(),
+                paymentMeans(bank),
                 invoice.getNumber(),
                 date(invoice.getIssueDate()),
                 date(invoice.getDueDate()),
@@ -72,6 +75,26 @@ public class FacturXReader {
                 net,
                 gross.subtract(net),
                 gross);
+    }
+
+    /** UNTDID 4461 payment means codes, as written in the Factur-X XML. */
+    private static ExtractedInvoice.PaymentMeans paymentMeans(BankDetails bank) {
+        if (bank == null) {
+            return ExtractedInvoice.PaymentMeans.UNKNOWN;
+        }
+        String code = bank.getPaymentMeansCode();
+        if (code == null) {
+            // Bank details without a code: they are given to be paid by transfer.
+            return bank.getIBAN() != null ? ExtractedInvoice.PaymentMeans.TRANSFER : ExtractedInvoice.PaymentMeans.UNKNOWN;
+        }
+        return switch (code) {
+            case "30", "58" -> ExtractedInvoice.PaymentMeans.TRANSFER;
+            case "59" -> ExtractedInvoice.PaymentMeans.DIRECT_DEBIT;
+            case "48", "54", "55" -> ExtractedInvoice.PaymentMeans.CARD;
+            case "20" -> ExtractedInvoice.PaymentMeans.CHEQUE;
+            case "10" -> ExtractedInvoice.PaymentMeans.CASH;
+            default -> ExtractedInvoice.PaymentMeans.UNKNOWN;
+        };
     }
 
     private static String siren(IZUGFeRDLegalOrganisation organisation) {

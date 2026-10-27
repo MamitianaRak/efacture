@@ -56,7 +56,7 @@ export class LoginPage {
     this.busy.set(true);
     this.error.set(null);
     this.auth.login(email, password).subscribe({
-      next: () => this.router.navigateByUrl(this.redirect() || '/factures'),
+      next: () => this.router.navigateByUrl(this.redirect() || '/tableau-de-bord'),
       error: (e: unknown) => {
         this.busy.set(false);
         this.error.set(toApiError(e));

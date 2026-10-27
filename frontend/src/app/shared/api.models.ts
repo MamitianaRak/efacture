@@ -81,6 +81,31 @@ export interface InvoiceRequest {
 
 export const VAT_RATES = [20, 10, 5.5, 2.1, 0] as const;
 
+export interface Dashboard {
+  year: number;
+  revenueNet: number;
+  collectedGross: number;
+  receivable: { count: number; totalGross: number };
+  overdue: { count: number; totalGross: number };
+  monthlyRevenue: { month: number; revenueNet: number }[];
+  overdueInvoices: {
+    id: number;
+    number: string;
+    customerName: string;
+    dueDate: string;
+    daysLate: number;
+    totalGross: number;
+  }[];
+  actions: {
+    type: 'REFUSED_WITHOUT_CREDIT_NOTE' | 'REJECTED_SUBMISSION';
+    invoiceId: number;
+    number: string;
+    customerName: string;
+    reason: string | null;
+  }[];
+  draftCount: number;
+}
+
 export type PlatformStatus =
   | 'DEPOSEE'
   | 'REJETEE'

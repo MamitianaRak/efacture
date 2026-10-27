@@ -11,7 +11,12 @@ export const routes: Routes = [
     path: '',
     canActivateChild: [loggedIn],
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'factures' },
+      { path: '', pathMatch: 'full', redirectTo: 'tableau-de-bord' },
+      {
+        path: 'tableau-de-bord',
+        title: 'Tableau de bord',
+        loadComponent: () => import('./dashboard/dashboard-page').then((m) => m.DashboardPage),
+      },
       {
         path: 'factures',
         title: 'Factures',
@@ -52,5 +57,5 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: 'factures' },
+  { path: '**', redirectTo: 'tableau-de-bord' },
 ];

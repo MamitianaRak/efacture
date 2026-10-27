@@ -5,6 +5,7 @@ import {
   Company,
   Customer,
   CustomerRequest,
+  Dashboard,
   Invoice,
   InvoiceRequest,
   InvoiceStatus,
@@ -68,6 +69,10 @@ export class Api {
 
   createCreditNote(id: number): Observable<Invoice> {
     return this.http.post<Invoice>(`/api/invoices/${id}/credit-note`, null);
+  }
+
+  getDashboard(year: number): Observable<Dashboard> {
+    return this.http.get<Dashboard>('/api/dashboard', { params: { year } });
   }
 
   getSubmission(invoiceId: number): Observable<Submission> {

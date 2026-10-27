@@ -1,5 +1,7 @@
 # eFacture PME
 
+[![CI](https://github.com/MamitianaRak/efacture/actions/workflows/ci.yml/badge.svg)](https://github.com/MamitianaRak/efacture/actions/workflows/ci.yml)
+
 **Factur-X e-invoicing for French small businesses, built with Spring Boot 4 (Java 25) and Angular 22.**
 
 France is making electronic invoicing mandatory between VAT-registered businesses. Every company must be able to **receive** e-invoices since **1 September 2026**, and small and medium businesses must **issue** them from **1 September 2027**. Invoices travel through government-registered platforms (*plateformes agréées*) in structured formats such as **Factur-X**: a readable PDF with machine-readable XML embedded inside.

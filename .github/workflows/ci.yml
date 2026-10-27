@@ -20,7 +20,8 @@ jobs:
           java-version: '25'
           cache: maven
       # Docker is available on GitHub-hosted Ubuntu runners, so the Testcontainers suite runs for real.
-      - run: ./mvnw -B verify
+      # Run the wrapper through sh: commits made on Windows may lose its executable bit.
+      - run: sh mvnw -B verify
 
   frontend:
     name: Frontend (Angular 22)

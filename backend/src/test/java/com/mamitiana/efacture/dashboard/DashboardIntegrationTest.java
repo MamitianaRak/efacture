@@ -29,6 +29,8 @@ class DashboardIntegrationTest extends IntegrationTest {
     private MockMvc mvc;
     @Autowired
     private SimulatedPlatform platform;
+    @Autowired
+    private com.mamitiana.efacture.outbox.OutboxRelay relay;
 
     private int customerId;
 
@@ -58,6 +60,7 @@ class DashboardIntegrationTest extends IntegrationTest {
 
     private void submit(int invoiceId) throws Exception {
         mvc.perform(post("/api/invoices/{id}/submission", invoiceId)).andExpect(status().isCreated());
+        relay.tick();
     }
 
     @Test

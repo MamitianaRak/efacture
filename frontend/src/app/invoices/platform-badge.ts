@@ -2,6 +2,8 @@ import { Component, computed, input } from '@angular/core';
 import { PLATFORM_STATUS_LABELS, PlatformStatus } from '../shared/api.models';
 
 const TONES: Record<PlatformStatus, string> = {
+  EN_COURS_ENVOI: 'warning',
+  ECHEC_ENVOI: 'danger',
   DEPOSEE: '',
   MISE_A_DISPOSITION: '',
   APPROUVEE: 'success',

@@ -50,6 +50,11 @@ public class Submission {
 
     private Instant updatedAt;
 
+    /** Failed attempts to hand the file to the platform, and the last error, shown while retrying. */
+    private int deliveryAttempts;
+
+    private String lastDeliveryError;
+
     @Version
     private long version;
 
@@ -57,13 +62,34 @@ public class Submission {
     @OrderBy("occurredAt, id")
     private List<SubmissionEvent> events = new ArrayList<>();
 
-    public Submission(Invoice invoice, String externalId, Instant now) {
+    /** A submission is born queued: the outbox relay sends it, and the platform's id arrives with the answer. */
+    public Submission(Invoice invoice, Instant now) {
         this.invoice = invoice;
-        this.externalId = externalId;
-        this.status = PlatformStatus.DEPOSEE;
+        this.status = PlatformStatus.EN_COURS_ENVOI;
         this.submittedAt = now;
         this.updatedAt = now;
-        events.add(new SubmissionEvent(this, PlatformStatus.DEPOSEE, null, SubmissionEvent.Source.SELLER, now));
+        events.add(new SubmissionEvent(this, PlatformStatus.EN_COURS_ENVOI, null, SubmissionEvent.Source.SELLER, now));
+    }
+
+    /** The platform acknowledged the file and gave it an id. */
+    public void deposited(String externalId, Instant at) {
+        this.externalId = externalId;
+        this.lastDeliveryError = null;
+        apply(PlatformStatus.DEPOSEE, null, SubmissionEvent.Source.PLATFORM, at);
+    }
+
+    /** One more failed attempt; the outbox will retry. */
+    public void deliveryAttemptFailed(String error, Instant at) {
+        this.deliveryAttempts++;
+        this.lastDeliveryError = error;
+        this.updatedAt = at;
+    }
+
+    /** Every retry failed: the invoice is free to be submitted again. */
+    public void deliveryAbandoned(String error, Instant at) {
+        this.lastDeliveryError = error;
+        apply(PlatformStatus.ECHEC_ENVOI, "Plateforme injoignable après plusieurs tentatives : " + error,
+                SubmissionEvent.Source.SELLER, at);
     }
 
     /**

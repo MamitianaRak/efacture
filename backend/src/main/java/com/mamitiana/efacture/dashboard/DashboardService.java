@@ -129,13 +129,14 @@ public class DashboardService {
     private List<ActionItem> actions() {
         return jdbc.sql(COMMON + """
                         SELECT CASE WHEN l.status = 'REFUSEE' THEN 'REFUSED_WITHOUT_CREDIT_NOTE'
+                                    WHEN l.status = 'ECHEC_ENVOI' THEN 'DELIVERY_FAILED'
                                     ELSE 'REJECTED_SUBMISSION' END AS type,
                                i.id, i.number, c.legal_name, l.status_reason
                         FROM invoice i
                         JOIN customer c ON c.id = i.customer_id
                         JOIN latest l ON l.invoice_id = i.id
                         WHERE (l.status = 'REFUSEE' AND i.id NOT IN (SELECT invoice_id FROM credited))
-                           OR l.status = 'REJETEE'
+                           OR l.status IN ('REJETEE', 'ECHEC_ENVOI')
                         ORDER BY i.issue_date, i.id
                         """)
                 .query((rs, n) -> new ActionItem(ActionType.valueOf(rs.getString("type")), rs.getLong("id"),

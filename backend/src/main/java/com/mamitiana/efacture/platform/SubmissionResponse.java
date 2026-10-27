@@ -10,6 +10,8 @@ public record SubmissionResponse(
         boolean finalStatus,
         Instant submittedAt,
         Instant updatedAt,
+        int deliveryAttempts,
+        String lastDeliveryError,
         List<Event> events,
         boolean simulated) {
 
@@ -18,7 +20,7 @@ public record SubmissionResponse(
 
     static SubmissionResponse from(Submission s) {
         return new SubmissionResponse(s.getExternalId(), s.getStatus(), s.getStatusReason(), s.getStatus().isFinal(),
-                s.getSubmittedAt(), s.getUpdatedAt(),
+                s.getSubmittedAt(), s.getUpdatedAt(), s.getDeliveryAttempts(), s.getLastDeliveryError(),
                 s.getEvents().stream()
                         .map(e -> new Event(e.getStatus(), e.getReason(), e.getSource(), e.getOccurredAt()))
                         .toList(),

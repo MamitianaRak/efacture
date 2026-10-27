@@ -4,6 +4,13 @@
 
 **Factur-X e-invoicing for French small businesses, built with Spring Boot 4 (Java 25) and Angular 22.**
 
+### At a glance
+
+- **Problem:** French e-invoicing becomes mandatory between businesses (reception since September 2026, issuance for small businesses in September 2027). eFacture issues compliant Factur-X invoices, follows them on a (simulated) registered platform, and reads incoming supplier invoices with AI under strict checks.
+- **Stack:** Java 25, Spring Boot 4, Spring Data JPA / Hibernate, Spring Security (JWT, roles), PostgreSQL, Flyway, Angular 22, Spring AI, Docker, GitHub Actions.
+- **Decisions worth a look:** gapless invoice numbering under concurrency, a transactional outbox with idempotent delivery to the platform, and AI output checked by deterministic rules (including detection of invented values).
+- **Proof:** 111 backend tests (JUnit 5, Mockito, Testcontainers on a real PostgreSQL), 7 frontend tests, CI on every push, and an extraction evaluation with measured results and stated limits.
+
 France is making electronic invoicing mandatory between VAT-registered businesses. Every company must be able to **receive** e-invoices since **1 September 2026**, and small and medium businesses must **issue** them from **1 September 2027**. Invoices travel through government-registered platforms (*plateformes agréées*) in structured formats such as **Factur-X**: a readable PDF with machine-readable XML embedded inside.
 
 eFacture PME lets a small business create compliant invoices and credit notes, enforces the legal rules a spreadsheet cannot, produces Factur-X files that pass the official EN 16931 validation, and follows each invoice on the platform until it is paid. On the receiving side, it reads supplier invoices with **generative AI in Java (Spring AI)**, and checks every value the model returns before anyone can validate it.
@@ -32,7 +39,7 @@ flowchart LR
     UI["Angular 22<br/>signals, guards, interceptor"] -- "REST / JSON + JWT" --> API["Spring Boot 4<br/>Spring Security"]
     API --> DB[("PostgreSQL<br/>Flyway migrations")]
     API --> FX["Mustangproject<br/>Factur-X PDF/A-3 + XML"]
-    API -- "PlatformGateway" --> PA["Simulated platform<br/>(async, validates Factur-X)"]
+    API -- "outbox relay<br/>(retries, idempotent)" --> PA["Simulated platform<br/>(async, validates Factur-X)"]
     PA -- "status notifications" --> API
     API -- "LlmGateway<br/>(fallback, circuit breakers)" --> LLM["Gemini · Groq"]
 ```
@@ -73,7 +80,14 @@ It runs inside the issuing transaction: concurrent issuances queue on the row lo
 
 **A state machine for the lifecycle.** `PlatformStatus` lists the allowed transitions; `Submission.apply()` refuses impossible ones (a buyer cannot approve an invoice that was never delivered) and ignores a status received twice, since platforms may deliver the same notification more than once. Every change is kept in a history.
 
-**One live submission per invoice, enforced by the database.** A partial unique index (`WHERE status <> 'REJETEE'`) guarantees it even when two clicks arrive at the same time; a new submission is only possible after a technical rejection.
+**One live submission per invoice, enforced by the database.** A partial unique index guarantees it even when two clicks arrive at the same time; a new submission is only possible after a technical rejection or a failed delivery.
+
+**A transactional outbox to the platform.** Submitting an invoice makes no external call: the submission and an `outbox_message` row are written in one transaction, and a relay sends the file afterwards. If the transaction rolls back, nothing is sent; if it commits, sending is guaranteed, even through a platform outage.
+- The relay locks messages with `FOR UPDATE SKIP LOCKED`, so several instances never send the same message: a test runs four relays at once and checks exactly one call per message.
+- Failed attempts are retried with an exponential delay (10 s, 20 s, 40 s, up to 10 min), then abandoned after five; the user sees the attempts and the last error, and can submit again.
+- Delivery is at least once, made safe by an idempotency key: when the platform stores a file but its answer is lost, the retry gets the same platform id back and no duplicate is created (tested).
+
+**Why not Kafka.** The need here is a delivery guarantee to one external system, not throughput between services: an outbox on the existing PostgreSQL meets it without a broker to run. Registered platforms are reached through APIs, and eFacture is a single application for small businesses. If it became a multi-tenant SaaS, the same outbox would be published to Kafka (with Debezium, for instance) without changing the business code.
 
 **Authorization next to the business rule.** Rules sit on the controllers with `@PreAuthorize`, including a business-aware one: `hasRole('MANAGER') or @invoiceAccess.isCreditNote(#id)` lets the accountant issue credit notes but not invoices. Login returns the same `401` for an unknown email and a wrong password, so it does not reveal which accounts exist.
 
@@ -134,9 +148,9 @@ It needs the API keys in `backend/.env` and writes `target/eval-report.md`. Free
 
 | Suite | Count | What it covers |
 |---|---|---|
-| Backend unit (JUnit 5, Mockito) | 76 | SIREN, VAT and IBAN keys, totals and rounding, invoice rules, mandatory mentions, service behaviour, platform state machine, LLM gateway fallback and circuit breaker, supplier invoice checks and grounding, readers with scripted models, evaluation set consistency |
+| Backend unit (JUnit 5, Mockito) | 79 | SIREN, VAT and IBAN keys, totals and rounding, invoice rules, mandatory mentions, service behaviour, platform state machine, outbox retry delays, LLM gateway fallback and circuit breaker, supplier invoice checks and grounding, readers with scripted models, evaluation set consistency |
 | Factur-X | 5 | Generated files pass the Mustang validator (PDF/A-3 and EN 16931 rules); embedded XML carries the same totals |
-| Backend integration (Testcontainers) | 21 | API lifecycle on a real PostgreSQL, 20 concurrent issuances, real logins and JWTs per role, platform scenarios (approved then paid, rejected then resubmitted, refused, duplicate notification), every dashboard figure, supplier invoice import, review and validation |
+| Backend integration (Testcontainers) | 27 | API lifecycle on a real PostgreSQL, 20 concurrent issuances, real logins and JWTs per role, platform scenarios (approved then paid, rejected then resubmitted, refused, duplicate notification), outbox under outage, lost answer, abandon and concurrent relays, every dashboard figure, supplier invoice import, review and validation |
 | Frontend (Vitest) | 7 | Totals preview matching the backend figures, auth interceptor (token, expiry, 401) |
 
 Testcontainers caught a real schema mismatch (`CHAR` columns against `String` fields) that unit tests could not see. The simulator is driven step by step in tests (`tick()`), with its rates set to 0 or 1, so platform scenarios are deterministic. Tests never call a real LLM, even with keys in `.env`: models are scripted, and integration tests run on a fixed clock.
@@ -233,13 +247,11 @@ All endpoints except login require a bearer token.
 
 - **Pre-payment fraud agent**: before a supplier invoice is paid, an agent compares the IBAN with the supplier's history, looks for near-duplicates and unusual amounts, and explains its risk assessment; payment stays blocked until a person decides
 - **Overdue reminders agent**, regulatory RAG on the reform's public documents, an MCP server
-- **Kafka** for platform notifications, with a transactional **outbox** (see limitations)
 - Online demo (configuration ready in `render.yaml`)
 
 ## Limitations
 
-- **Submission is not atomic with the platform call.** If the platform accepts a file and the database write then fails, the platform knows a submission we do not. The standard fix is a transactional outbox, planned with Kafka.
-- The simulator keeps its state in memory: pending submissions are lost on restart.
+- The simulator keeps its state in memory: files pending on the simulated platform are lost when it restarts (the outbox itself is in the database).
 - One instance serves a single issuing company.
 - The PDF is Mustang's standard rendering of the invoice data, not a branded layout.
 - The buyer's electronic invoicing address, used by the reform to route invoices between platforms, is not handled yet.

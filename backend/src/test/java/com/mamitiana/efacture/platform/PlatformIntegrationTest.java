@@ -32,6 +32,8 @@ class PlatformIntegrationTest extends IntegrationTest {
     @Autowired
     private SimulatedPlatform platform;
     @Autowired
+    private com.mamitiana.efacture.outbox.OutboxRelay relay;
+    @Autowired
     private ApplicationEventPublisher events;
 
     @AfterEach
@@ -80,8 +82,11 @@ class PlatformIntegrationTest extends IntegrationTest {
 
         mvc.perform(post("/api/invoices/{id}/submission", invoiceId))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("DEPOSEE"))
+                .andExpect(jsonPath("$.status").value("EN_COURS_ENVOI"))
                 .andExpect(jsonPath("$.simulated").value(true));
+
+        relay.tick();
+        assertThat(statusOf(invoiceId)).isEqualTo("DEPOSEE");
 
         platform.tick();
         assertThat(statusOf(invoiceId)).isEqualTo("MISE_A_DISPOSITION");
@@ -93,7 +98,7 @@ class PlatformIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.status").value("ENCAISSEE"))
                 .andExpect(jsonPath("$.finalStatus").value(true))
                 .andExpect(jsonPath("$.events[*].status")
-                        .value(org.hamcrest.Matchers.contains("DEPOSEE", "MISE_A_DISPOSITION", "APPROUVEE", "ENCAISSEE")));
+                        .value(org.hamcrest.Matchers.contains("EN_COURS_ENVOI", "DEPOSEE", "MISE_A_DISPOSITION", "APPROUVEE", "ENCAISSEE")));
 
         mvc.perform(get("/api/submissions/latest-statuses"))
                 .andExpect(jsonPath("$['%d']".formatted(invoiceId)).value("ENCAISSEE"));
@@ -109,6 +114,7 @@ class PlatformIntegrationTest extends IntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("déjà déposée")));
 
+        relay.tick();
         platform.tick();
         mvc.perform(get("/api/invoices/{id}/submission", invoiceId))
                 .andExpect(jsonPath("$.status").value("REJETEE"))
@@ -117,7 +123,7 @@ class PlatformIntegrationTest extends IntegrationTest {
         platform.setRates(0, 0);
         mvc.perform(post("/api/invoices/{id}/submission", invoiceId))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("DEPOSEE"));
+                .andExpect(jsonPath("$.status").value("EN_COURS_ENVOI"));
     }
 
     @Test
@@ -126,6 +132,7 @@ class PlatformIntegrationTest extends IntegrationTest {
         int invoiceId = issuedInvoice();
         mvc.perform(post("/api/invoices/{id}/submission", invoiceId)).andExpect(status().isCreated());
 
+        relay.tick();
         platform.tick();
         platform.tick();
 
@@ -139,7 +146,9 @@ class PlatformIntegrationTest extends IntegrationTest {
     void duplicateNotificationIsAppliedOnce() throws Exception {
         platform.setRates(0, 0);
         int invoiceId = issuedInvoice();
-        String body = mvc.perform(post("/api/invoices/{id}/submission", invoiceId))
+        mvc.perform(post("/api/invoices/{id}/submission", invoiceId));
+        relay.tick();
+        String body = mvc.perform(get("/api/invoices/{id}/submission", invoiceId))
                 .andReturn().getResponse().getContentAsString();
         String externalId = JsonPath.read(body, "$.externalId");
 
@@ -148,7 +157,7 @@ class PlatformIntegrationTest extends IntegrationTest {
         events.publishEvent(delivered);
 
         mvc.perform(get("/api/invoices/{id}/submission", invoiceId))
-                .andExpect(jsonPath("$.events.length()").value(2));
+                .andExpect(jsonPath("$.events.length()").value(3));
     }
 
     @Test

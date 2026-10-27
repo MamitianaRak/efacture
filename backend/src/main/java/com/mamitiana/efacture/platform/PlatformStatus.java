@@ -5,9 +5,14 @@ import java.util.Set;
 
 /**
  * Lifecycle of an e-invoice on the registered platform. DEPOSEE, REJETEE, REFUSEE and ENCAISSEE are the
- * four statuses every platform must handle under the French reform; the others are common intermediate steps.
+ * four statuses every platform must handle under the French reform; the others are common intermediate steps,
+ * plus two of our own for the sending itself.
  */
 public enum PlatformStatus {
+    /** Ours: queued in the outbox, not yet acknowledged by the platform. */
+    EN_COURS_ENVOI(false),
+    /** Ours: the platform stayed unreachable after every retry. Final: submit again. */
+    ECHEC_ENVOI(false),
     /** Received by the seller's platform. Mandatory. */
     DEPOSEE(true),
     /** Technical rejection by the platform (invalid format or data). Mandatory, final: fix and resubmit. */
@@ -35,12 +40,18 @@ public enum PlatformStatus {
         return nextStatuses().isEmpty();
     }
 
+    /** Final statuses after which the invoice may be submitted again. */
+    public static Set<PlatformStatus> allowingResubmission() {
+        return EnumSet.of(REJETEE, ECHEC_ENVOI);
+    }
+
     public Set<PlatformStatus> nextStatuses() {
         return switch (this) {
+            case EN_COURS_ENVOI -> EnumSet.of(DEPOSEE, ECHEC_ENVOI);
             case DEPOSEE -> EnumSet.of(REJETEE, MISE_A_DISPOSITION);
             case MISE_A_DISPOSITION -> EnumSet.of(APPROUVEE, REFUSEE, ENCAISSEE);
             case APPROUVEE -> EnumSet.of(ENCAISSEE);
-            case REJETEE, REFUSEE, ENCAISSEE -> EnumSet.noneOf(PlatformStatus.class);
+            case ECHEC_ENVOI, REJETEE, REFUSEE, ENCAISSEE -> EnumSet.noneOf(PlatformStatus.class);
         };
     }
 

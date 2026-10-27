@@ -72,11 +72,58 @@ public class SimulatedPlatform implements PlatformGateway {
         this.refusalRate = refusalRate;
     }
 
+    /** How the platform's API misbehaves on the next submissions, to exercise the outbox's retries. */
+    public enum Outage {
+        NONE,
+        /** The API is down: nothing is received. */
+        UNAVAILABLE,
+        /** The file is received and stored, but the answer is lost on the way back (a timeout, for instance). */
+        RESPONSE_LOST
+    }
+
+    private final Map<String, String> externalIdByKey = new ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicInteger submitCalls = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile Outage outage = Outage.NONE;
+
+    public void setOutage(Outage outage) {
+        this.outage = outage;
+    }
+
+    /** How many distinct files the platform has stored: a duplicate submission would show here. */
+    public int storedFiles() {
+        return externalIdByKey.size();
+    }
+
+    /** How many times submit was called, retries included. */
+    public int submitCalls() {
+        return submitCalls.get();
+    }
+
+    /** Forgets every file and outage. The simulator is a singleton: tests start from a clean platform. */
+    public void reset() {
+        inbox.clear();
+        externalIdByKey.clear();
+        submitCalls.set(0);
+        outage = Outage.NONE;
+        setRates(0.1, 0.2);
+    }
+
     @Override
-    public String submit(String invoiceNumber, byte[] facturX) {
-        String externalId = "SIM-" + UUID.randomUUID();
-        inbox.put(externalId, new Pending(invoiceNumber, facturX, Stage.RECEIVED));
-        log.info("Simulated platform received {} as {}", invoiceNumber, externalId);
+    public String submit(String idempotencyKey, String invoiceNumber, byte[] facturX) {
+        submitCalls.incrementAndGet();
+        if (outage == Outage.UNAVAILABLE) {
+            throw new IllegalStateException("Plateforme indisponible (503)");
+        }
+        // Idempotent: the same key always gets the same id, and the file is stored only once.
+        String externalId = externalIdByKey.computeIfAbsent(idempotencyKey, key -> {
+            String id = "SIM-" + UUID.randomUUID();
+            inbox.put(id, new Pending(invoiceNumber, facturX, Stage.RECEIVED));
+            log.info("Simulated platform received {} as {}", invoiceNumber, id);
+            return id;
+        });
+        if (outage == Outage.RESPONSE_LOST) {
+            throw new IllegalStateException("Délai dépassé : réponse de la plateforme perdue");
+        }
         return externalId;
     }
 

@@ -29,7 +29,9 @@ public record DashboardResponse(
         /** Refused by the buyer and not yet cancelled by a credit note. */
         REFUSED_WITHOUT_CREDIT_NOTE,
         /** Technically rejected by the platform: to fix and submit again. */
-        REJECTED_SUBMISSION
+        REJECTED_SUBMISSION,
+        /** The platform stayed unreachable after every retry: submit again. */
+        DELIVERY_FAILED
     }
 
     public record ActionItem(ActionType type, Long invoiceId, String number, String customerName, String reason) {

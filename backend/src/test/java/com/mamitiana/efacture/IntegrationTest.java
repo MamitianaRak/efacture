@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 // No real LLM call from tests, even with keys in backend/.env: tests that need a model use a scripted one.
 @SpringBootTest(properties = {
         "app.platform.simulator.scheduled=false",
+        "app.outbox.relay.scheduled=false",
         "app.llm.providers.groq.api-key=",
         "app.llm.providers.gemini.api-key="})
 @AutoConfigureMockMvc
@@ -49,10 +50,14 @@ public abstract class IntegrationTest {
     @Autowired
     protected JdbcClient jdbc;
 
+    @Autowired
+    private com.mamitiana.efacture.platform.SimulatedPlatform simulatedPlatform;
+
     @BeforeEach
     void cleanDatabase() {
+        simulatedPlatform.reset();
         jdbc.sql("""
-                TRUNCATE invoice_line, invoice, customer, company, invoice_sequence, supplier_invoice
+                TRUNCATE invoice_line, invoice, customer, company, invoice_sequence, supplier_invoice, outbox_message
                 RESTART IDENTITY CASCADE
                 """).update();
     }

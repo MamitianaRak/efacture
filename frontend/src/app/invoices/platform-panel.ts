@@ -25,7 +25,14 @@ const POLL_MS = 3000;
       <app-error-alert [error]="error()" />
 
       @if (submission(); as s) {
-        @if (s.status === 'REJETEE') {
+        @if (s.status === 'EN_COURS_ENVOI' && s.deliveryAttempts > 0) {
+          <p class="muted">
+            Plateforme injoignable pour l’instant ({{ s.deliveryAttempts }} tentative(s), dernière erreur :
+            {{ s.lastDeliveryError }}). Le dépôt est conservé et sera renvoyé automatiquement.
+          </p>
+        } @else if (s.status === 'ECHEC_ENVOI') {
+          <p class="muted">La plateforme est restée injoignable après plusieurs tentatives : déposez à nouveau.</p>
+        } @else if (s.status === 'REJETEE') {
           <p class="muted">Rejet technique : corrigez si besoin, puis déposez à nouveau.</p>
         } @else if (s.status === 'REFUSEE') {
           <p class="muted">Le client a refusé la facture : émettez un avoir pour l’annuler.</p>
@@ -86,7 +93,7 @@ export class PlatformPanel {
 
   protected readonly canSubmit = computed(() => {
     const s = this.submission();
-    return this.isManager() && this.loaded() && (!s || s.status === 'REJETEE');
+    return this.isManager() && this.loaded() && (!s || s.status === 'REJETEE' || s.status === 'ECHEC_ENVOI');
   });
   protected readonly canMarkPaid = computed(() => {
     const status = this.submission()?.status;

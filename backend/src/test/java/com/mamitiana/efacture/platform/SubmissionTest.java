@@ -16,15 +16,33 @@ class SubmissionTest {
     private static final SubmissionEvent.Source PLATFORM = SubmissionEvent.Source.PLATFORM;
 
     private static Submission submission() {
-        return new Submission(InvoiceFixtures.issuedInvoice(), "SIM-1", NOW);
+        Submission submission = new Submission(InvoiceFixtures.issuedInvoice(), NOW);
+        submission.deposited("SIM-1", NOW);
+        return submission;
     }
 
     @Test
-    void startsDepositedWithOneEvent() {
-        Submission submission = submission();
+    void startsQueuedThenDepositedWithThePlatformId() {
+        Submission queued = new Submission(InvoiceFixtures.issuedInvoice(), NOW);
+        assertThat(queued.getStatus()).isEqualTo(PlatformStatus.EN_COURS_ENVOI);
+        assertThat(queued.getExternalId()).isNull();
 
-        assertThat(submission.getStatus()).isEqualTo(PlatformStatus.DEPOSEE);
-        assertThat(submission.getEvents()).extracting(SubmissionEvent::getStatus).containsExactly(PlatformStatus.DEPOSEE);
+        queued.deposited("SIM-1", NOW);
+
+        assertThat(queued.getExternalId()).isEqualTo("SIM-1");
+        assertThat(queued.getEvents()).extracting(SubmissionEvent::getStatus)
+                .containsExactly(PlatformStatus.EN_COURS_ENVOI, PlatformStatus.DEPOSEE);
+    }
+
+    @Test
+    void abandonedDeliveryFreesTheInvoiceForANewSubmission() {
+        Submission queued = new Submission(InvoiceFixtures.issuedInvoice(), NOW);
+        queued.deliveryAttemptFailed("503", NOW);
+        queued.deliveryAbandoned("503", NOW);
+
+        assertThat(queued.getStatus()).isEqualTo(PlatformStatus.ECHEC_ENVOI);
+        assertThat(queued.getDeliveryAttempts()).isEqualTo(1);
+        assertThat(PlatformStatus.allowingResubmission()).contains(PlatformStatus.ECHEC_ENVOI, PlatformStatus.REJETEE);
     }
 
     @Test
@@ -37,7 +55,7 @@ class SubmissionTest {
 
         assertThat(submission.getStatus().isFinal()).isTrue();
         assertThat(submission.getEvents()).extracting(SubmissionEvent::getStatus).containsExactly(
-                PlatformStatus.DEPOSEE, PlatformStatus.MISE_A_DISPOSITION, PlatformStatus.APPROUVEE, PlatformStatus.ENCAISSEE);
+                PlatformStatus.EN_COURS_ENVOI, PlatformStatus.DEPOSEE, PlatformStatus.MISE_A_DISPOSITION, PlatformStatus.APPROUVEE, PlatformStatus.ENCAISSEE);
     }
 
     @Test
@@ -48,7 +66,7 @@ class SubmissionTest {
         boolean changed = submission.apply(PlatformStatus.MISE_A_DISPOSITION, null, PLATFORM, NOW.plusSeconds(1));
 
         assertThat(changed).isFalse();
-        assertThat(submission.getEvents()).hasSize(2);
+        assertThat(submission.getEvents()).hasSize(3);
     }
 
     @Test

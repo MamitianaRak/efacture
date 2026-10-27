@@ -84,7 +84,7 @@ const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aoû
                 }
               </span>
               <span class="badge warning">
-                {{ action.type === 'REFUSED_WITHOUT_CREDIT_NOTE' ? 'Refusée : faire un avoir' : 'Rejetée : redéposer' }}
+                {{ actionLabels[action.type] }}
               </span>
             </a>
           } @empty {
@@ -127,6 +127,11 @@ export class DashboardPage {
   private readonly api = inject(Api);
 
   protected readonly months = MONTHS;
+  protected readonly actionLabels = {
+    REFUSED_WITHOUT_CREDIT_NOTE: 'Refusée : faire un avoir',
+    REJECTED_SUBMISSION: 'Rejetée : redéposer',
+    DELIVERY_FAILED: 'Envoi échoué : redéposer',
+  } as const;
   protected readonly currentYear = new Date().getFullYear();
   protected readonly year = signal(this.currentYear);
   protected readonly data = signal<Dashboard | null>(null);

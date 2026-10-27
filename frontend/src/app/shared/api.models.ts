@@ -181,7 +181,7 @@ export interface Dashboard {
     totalGross: number;
   }[];
   actions: {
-    type: 'REFUSED_WITHOUT_CREDIT_NOTE' | 'REJECTED_SUBMISSION';
+    type: 'REFUSED_WITHOUT_CREDIT_NOTE' | 'REJECTED_SUBMISSION' | 'DELIVERY_FAILED';
     invoiceId: number;
     number: string;
     customerName: string;
@@ -191,6 +191,8 @@ export interface Dashboard {
 }
 
 export type PlatformStatus =
+  | 'EN_COURS_ENVOI'
+  | 'ECHEC_ENVOI'
   | 'DEPOSEE'
   | 'REJETEE'
   | 'MISE_A_DISPOSITION'
@@ -199,6 +201,8 @@ export type PlatformStatus =
   | 'ENCAISSEE';
 
 export const PLATFORM_STATUS_LABELS: Record<PlatformStatus, string> = {
+  EN_COURS_ENVOI: 'En cours d’envoi',
+  ECHEC_ENVOI: 'Échec d’envoi',
   DEPOSEE: 'Déposée',
   REJETEE: 'Rejetée',
   MISE_A_DISPOSITION: 'Mise à disposition',
@@ -221,6 +225,8 @@ export interface Submission {
   finalStatus: boolean;
   submittedAt: string;
   updatedAt: string;
+  deliveryAttempts: number;
+  lastDeliveryError: string | null;
   events: SubmissionEvent[];
   simulated: boolean;
 }

@@ -44,7 +44,7 @@ import { Icon } from '../shared/icon';
       </label>
       @if (isManager()) {
       <div class="actions span-2">
-        <button type="submit" class="primary" [disabled]="form.invalid || saving()">
+        <button type="submit" class="primary" [disabled]="form.invalid || saving()" [class.loading]="saving()">
           <app-icon name="check" [size]="16" /> {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
         </button>
       </div>

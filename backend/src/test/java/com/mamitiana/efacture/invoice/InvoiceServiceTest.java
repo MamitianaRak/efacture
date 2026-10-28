@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionOperations;
 
 @ExtendWith(MockitoExtension.class)
 class InvoiceServiceTest {
@@ -48,7 +49,8 @@ class InvoiceServiceTest {
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(TODAY.atTime(10, 0).atZone(PARIS).toInstant(), PARIS);
-        service = new InvoiceService(invoices, customers, companies, numbers, new IssuanceValidator(), facturX, clock);
+        service = new InvoiceService(invoices, customers, companies, numbers, new IssuanceValidator(), facturX,
+                TransactionOperations.withoutTransaction(), clock);
     }
 
     private static Invoice draft(LocalDate dueDate) {
@@ -119,7 +121,7 @@ class InvoiceServiceTest {
         when(invoices.findById(1L)).thenReturn(Optional.of(draft(TODAY.plusDays(30))));
 
         assertThatThrownBy(() -> service.exportFacturX(1L)).isInstanceOf(BusinessRuleException.class);
-        verify(facturX, never()).generate(any(), any());
+        verify(facturX, never()).render(any());
     }
 
     @Test

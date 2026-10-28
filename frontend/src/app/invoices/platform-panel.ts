@@ -59,12 +59,18 @@ const POLL_MS = 3000;
 
       <div class="actions">
         @if (canSubmit()) {
-          <button type="button" class="primary" (click)="submit()" [disabled]="busy()">
-            {{ submission() ? 'Déposer à nouveau' : 'Déposer sur la plateforme' }}
+          <button type="button" class="primary" (click)="action.set('submit'); submit()" [disabled]="busy()"
+                  [class.loading]="busy() && action() === 'submit'">
+            @if (busy() && action() === 'submit') {
+              Dépôt en cours…
+            } @else {
+              {{ submission() ? 'Déposer à nouveau' : 'Déposer sur la plateforme' }}
+            }
           </button>
         }
         @if (canMarkPaid()) {
-          <button type="button" (click)="markPaid()" [disabled]="busy()">Marquer comme encaissée</button>
+          <button type="button" (click)="action.set('paid'); markPaid()" [disabled]="busy()"
+                  [class.loading]="busy() && action() === 'paid'">Marquer comme encaissée</button>
         }
       </div>
     </section>
@@ -91,6 +97,7 @@ export class PlatformPanel {
   protected readonly submission = signal<Submission | null>(null);
   protected readonly loaded = signal(false);
   protected readonly busy = signal(false);
+  protected readonly action = signal<'submit' | 'paid' | null>(null);
   protected readonly error = signal<ApiError | null>(null);
 
   protected readonly canSubmit = computed(() => {

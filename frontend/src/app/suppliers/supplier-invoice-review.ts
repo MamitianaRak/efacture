@@ -60,6 +60,7 @@ export class SupplierInvoiceReview {
   protected readonly fileUrl = signal<SafeResourceUrl | null>(null);
   protected readonly isImage = signal(false);
   protected readonly busy = signal(false);
+  protected readonly action = signal<'reject' | 'save' | 'validate' | null>(null);
   protected readonly error = signal<ApiError | null>(null);
   private objectUrl: string | null = null;
 

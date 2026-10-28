@@ -35,6 +35,9 @@ export class InvoiceEditor {
   protected readonly customers = signal<Customer[]>([]);
   protected readonly error = signal<ApiError | null>(null);
   protected readonly busy = signal(false);
+  /** The button that started the running action: it shows the spinner. */
+  protected readonly action = signal<string | null>(null);
+  protected readonly downloading = signal(false);
 
   protected readonly form = this.fb.group({
     customerId: this.fb.control<number | null>(null, Validators.required),
@@ -159,8 +162,11 @@ export class InvoiceEditor {
   }
 
   downloadFacturX(invoice: Invoice): void {
+    this.downloading.set(true);
+    this.error.set(null);
     this.api.downloadFacturX(invoice.id).subscribe({
       next: (pdf) => {
+        this.downloading.set(false);
         const url = URL.createObjectURL(pdf);
         const link = document.createElement('a');
         link.href = url;
@@ -168,7 +174,10 @@ export class InvoiceEditor {
         link.click();
         URL.revokeObjectURL(url);
       },
-      error: (e: unknown) => this.error.set(toApiError(e)),
+      error: (e: unknown) => {
+        this.downloading.set(false);
+        this.error.set(toApiError(e));
+      },
     });
   }
 

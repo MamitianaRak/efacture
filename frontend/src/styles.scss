@@ -250,6 +250,35 @@ button,
     padding: 5px 10px;
     font-size: 0.85rem;
   }
+
+  // Action in progress: a spinner replaces the icon, the label stays so the user knows what is running.
+  &.loading {
+    cursor: progress;
+
+    &:disabled {
+      opacity: 0.85;
+    }
+
+    app-icon {
+      display: none;
+    }
+
+    &::before {
+      content: '';
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      animation: spin 0.7s linear infinite;
+    }
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // Segmented control used as a filter.

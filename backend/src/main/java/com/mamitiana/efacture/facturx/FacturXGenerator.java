@@ -42,10 +42,27 @@ public class FacturXGenerator {
     private static final String SEPA_TRANSFER = "58";
 
     public byte[] generate(Invoice invoice, Company seller) {
+        return render(prepare(invoice, seller));
+    }
+
+    /**
+     * Copies what the file needs out of the entities. Fast, and the only step that reads lazy associations, so it
+     * runs inside a transaction while {@link #render} runs after it, without holding a database connection.
+     */
+    public Prepared prepare(Invoice invoice, Company seller) {
         if (invoice.getNumber() == null) {
             throw new IllegalArgumentException("Only an issued invoice can be exported to Factur-X");
         }
-        org.mustangproject.Invoice transaction = toTransaction(invoice, seller);
+        return new Prepared(invoice.getNumber(), seller.getLegalName(), toTransaction(invoice, seller));
+    }
+
+    /** Detached copy of an invoice, ready to be rendered. */
+    public record Prepared(String number, String creator, org.mustangproject.Invoice transaction) {
+    }
+
+    /** The slow, CPU-bound step: XML, readable PDF (FOP) and PDF/A-3 with the XML embedded. */
+    public byte[] render(Prepared prepared) {
+        org.mustangproject.Invoice transaction = prepared.transaction();
 
         ZUGFeRD2PullProvider provider = new ZUGFeRD2PullProvider();
         provider.setProfile(Profiles.getByName("EN16931"));
@@ -57,13 +74,13 @@ public class FacturXGenerator {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             try (ZUGFeRDExporterFromPDFA exporter = new ZUGFeRDExporterFromPDFA()) {
                 exporter.load(readablePdf);
-                exporter.setProducer("eFacture PME").setCreator(seller.getLegalName());
+                exporter.setProducer("eFacture PME").setCreator(prepared.creator());
                 exporter.setTransaction(transaction);
                 exporter.export(out);
             }
             return out.toByteArray();
         } catch (IOException e) {
-            throw new UncheckedIOException("Factur-X generation failed for " + invoice.getNumber(), e);
+            throw new UncheckedIOException("Factur-X generation failed for " + prepared.number(), e);
         }
     }
 

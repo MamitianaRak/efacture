@@ -112,9 +112,14 @@
     <div class="actions">
       <a routerLink="/fournisseurs" class="button">Retour</a>
       @if (open()) {
-        <button type="button" class="danger" (click)="reject()" [disabled]="busy()">Rejeter</button>
-        <button type="button" (click)="save()" [disabled]="busy()">Enregistrer et recontrôler</button>
-        <button type="button" class="primary" (click)="validate()" [disabled]="busy() || errors().length > 0"
+        <button type="button" class="danger" (click)="action.set('reject'); reject()" [disabled]="busy()"
+                [class.loading]="busy() && action() === 'reject'">Rejeter</button>
+        <button type="button" (click)="action.set('save'); save()" [disabled]="busy()"
+                [class.loading]="busy() && action() === 'save'">
+          {{ busy() && action() === 'save' ? 'Contrôle en cours…' : 'Enregistrer et recontrôler' }}
+        </button>
+        <button type="button" class="primary" (click)="action.set('validate'); validate()"
+                [disabled]="busy() || errors().length > 0" [class.loading]="busy() && action() === 'validate'"
                 [title]="errors().length ? 'Corrigez les erreurs avant de valider' : ''">Valider</button>
       }
     </div>

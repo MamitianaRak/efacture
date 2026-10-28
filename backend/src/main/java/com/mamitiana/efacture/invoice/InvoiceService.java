@@ -13,7 +13,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 @Service
 @Transactional(readOnly = true)
@@ -25,17 +27,19 @@ public class InvoiceService {
     private final InvoiceNumberGenerator numbers;
     private final IssuanceValidator validator;
     private final FacturXGenerator facturX;
+    private final TransactionOperations transaction;
     private final Clock clock;
 
     public InvoiceService(InvoiceRepository invoices, CustomerService customers, CompanyRepository companies,
                           InvoiceNumberGenerator numbers, IssuanceValidator validator, FacturXGenerator facturX,
-                          Clock clock) {
+                          TransactionOperations transaction, Clock clock) {
         this.invoices = invoices;
         this.customers = customers;
         this.companies = companies;
         this.numbers = numbers;
         this.validator = validator;
         this.facturX = facturX;
+        this.transaction = transaction;
         this.clock = clock;
     }
 
@@ -96,15 +100,23 @@ public class InvoiceService {
         return InvoiceResponse.from(invoices.save(Invoice.creditNoteFor(original)));
     }
 
-    /** The Factur-X file is rebuilt from the frozen invoice on each download, so it never drifts from the data. */
+    /**
+     * The Factur-X file is rebuilt from the frozen invoice on each download, so it never drifts from the data.
+     * The data is read in a short transaction and the PDF rendered after it: rendering is slow on a small CPU, and
+     * holding a pooled connection meanwhile starved every other request.
+     */
+    @Transactional(propagation = Propagation.SUPPORTS)
     public FacturXFile exportFacturX(Long id) {
-        Invoice invoice = load(id);
-        if (invoice.getStatus() == InvoiceStatus.DRAFT) {
-            throw new BusinessRuleException("Un brouillon n'a pas de Factur-X : émettez d'abord la facture");
-        }
-        Company seller = companies.findSingleton()
-                .orElseThrow(() -> new BusinessRuleException("L'entreprise émettrice n'est pas renseignée"));
-        return new FacturXFile(invoice.getNumber() + ".pdf", facturX.generate(invoice, seller));
+        FacturXGenerator.Prepared prepared = transaction.execute(status -> {
+            Invoice invoice = load(id);
+            if (invoice.getStatus() == InvoiceStatus.DRAFT) {
+                throw new BusinessRuleException("Un brouillon n'a pas de Factur-X : émettez d'abord la facture");
+            }
+            Company seller = companies.findSingleton()
+                    .orElseThrow(() -> new BusinessRuleException("L'entreprise émettrice n'est pas renseignée"));
+            return facturX.prepare(invoice, seller);
+        });
+        return new FacturXFile(prepared.number() + ".pdf", facturX.render(prepared));
     }
 
     public record FacturXFile(String filename, byte[] content) {

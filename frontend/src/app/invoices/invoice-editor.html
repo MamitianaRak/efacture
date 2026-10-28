@@ -31,25 +31,32 @@
   <div class="actions">
     @if (editable()) {
       @if (current) {
-        <button type="button" class="danger" (click)="deleteDraft()" [disabled]="busy()">
+        <button type="button" class="danger" (click)="action.set('delete'); deleteDraft()" [disabled]="busy()"
+                [class.loading]="busy() && action() === 'delete'">
           <app-icon name="trash" [size]="16" /> Supprimer
         </button>
       }
-      <button type="button" (click)="save()" [disabled]="form.invalid || busy()">Enregistrer le brouillon</button>
+      <button type="button" (click)="action.set('save'); save()" [disabled]="form.invalid || busy()"
+              [class.loading]="busy() && action() === 'save'">
+        {{ busy() && action() === 'save' ? 'Enregistrement…' : 'Enregistrer le brouillon' }}
+      </button>
     }
     @if (canIssue()) {
-      <button type="button" class="primary" (click)="issue()" [disabled]="form.invalid || busy()">
-        <app-icon name="check" [size]="16" /> Émettre
+      <button type="button" class="primary" (click)="action.set('issue'); issue()" [disabled]="form.invalid || busy()"
+              [class.loading]="busy() && action() === 'issue'">
+        <app-icon name="check" [size]="16" /> {{ busy() && action() === 'issue' ? 'Émission…' : 'Émettre' }}
       </button>
     }
     @if (current?.status === 'ISSUED') {
       @if (current?.type === 'INVOICE') {
-        <button type="button" class="danger" (click)="createCreditNote()" [disabled]="busy()">
+        <button type="button" class="danger" (click)="action.set('creditNote'); createCreditNote()" [disabled]="busy()"
+                [class.loading]="busy() && action() === 'creditNote'">
           <app-icon name="undo" [size]="16" /> Créer un avoir
         </button>
       }
-      <button type="button" class="primary" (click)="downloadFacturX(current!)">
-        <app-icon name="download" [size]="16" /> Factur-X
+      <button type="button" class="primary" (click)="downloadFacturX(current!)" [disabled]="downloading()"
+              [class.loading]="downloading()" title="Génération du PDF/A-3 avec le XML embarqué">
+        <app-icon name="download" [size]="16" /> {{ downloading() ? 'Génération du PDF…' : 'Factur-X' }}
       </button>
     }
   </div>

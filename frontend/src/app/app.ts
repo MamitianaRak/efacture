@@ -4,6 +4,7 @@ import { filter } from 'rxjs';
 import { Auth } from './auth/auth';
 import { DialogHost } from './shared/dialog';
 import { Icon } from './shared/icon';
+import { ProgressBar } from './shared/loading';
 import { ToastHost } from './shared/toast';
 
 const ROLE_LABELS = { MANAGER: 'Gérant', ACCOUNTANT: 'Comptable' } as const;
@@ -28,7 +29,7 @@ const NAVIGATION: { section: string; items: NavItem[] }[] = [
 ];
 
 @Component({
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, ToastHost, DialogHost],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, ProgressBar, ToastHost, DialogHost],
   selector: 'app-root',
   template: `
     @if (auth.user(); as user) {
@@ -81,6 +82,7 @@ const NAVIGATION: { section: string; items: NavItem[] }[] = [
     } @else {
       <router-outlet />
     }
+    <app-progress-bar />
     <app-toasts />
     <app-dialog-host />
   `,

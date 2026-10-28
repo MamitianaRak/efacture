@@ -51,7 +51,7 @@ import { Auth } from './auth';
           <form [formGroup]="form" (ngSubmit)="submit()">
             <label>E-mail <input formControlName="email" type="email" autocomplete="username" /></label>
             <label>Mot de passe <input formControlName="password" type="password" autocomplete="current-password" /></label>
-            <button type="submit" class="primary" [disabled]="form.invalid || busy()">
+            <button type="submit" class="primary" [disabled]="form.invalid || busy()" [class.loading]="busy()">
               {{ busy() ? 'Connexion…' : 'Se connecter' }}
             </button>
           </form>

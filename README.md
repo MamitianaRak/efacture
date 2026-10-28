@@ -203,7 +203,20 @@ The simulator's pace and rates are set in `application.properties` (`app.platfor
 
 ## Deployment
 
-The `Dockerfile` builds **one image** for the whole application: the Angular build is copied into Spring Boot's static resources, so the app and the API share one origin (no CORS). It runs as a non-root user on a JRE-only base.
+The `Dockerfile` builds **one image** for the whole application: the Angular build is copied into Spring Boot's static resources, so the app and the API share one origin (no CORS). It runs as a non-root user (numeric UID, so Kubernetes can enforce it) on a JRE-only base, with build caches for Maven and npm.
+
+The jar is split into Spring Boot's layers (dependencies, loader, application) instead of being copied as one file. Measured on the same machine and database:
+
+| | Single jar | Layers |
+|---|---|---|
+| Startup | 49.3 s | **21.4 s** |
+| Image layer changed by a code change | 113 MB | **1.35 MB** |
+| Memory under load, 512 MB without swap | holds (~505 MB) | holds (~505 MB) |
+| Uncompressed image size | 690 MB | 852 MB |
+
+The extracted dependencies take more disk space than the compressed jar; faster startup (a free instance wakes up on the first visit) and small updates are worth it. Not done, on purpose: an Alpine or distroless base (PDF rendering needs fonts and graphics libraries they lack), a `jlink` runtime (Spring and the PDF libraries load classes dynamically, so a missing module would only show at run time), and Java's AOT cache (its training run starts the application, which needs the database at build time).
+
+Kubernetes manifests (probes, resources, graceful shutdown) are in [k8s/](k8s/README.md).
 
 `render.yaml` deploys it on Render's free tier, with PostgreSQL hosted on Neon. The image was sized by measuring it in a **512 MB container without swap**:
 

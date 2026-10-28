@@ -1,0 +1,16 @@
+# Local cluster only: start the application once PostgreSQL accepts connections, instead of letting it crash and
+# restart until the database is up (a fresh local PostgreSQL can take minutes to initialise on a slow disk).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: efacture
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:17-alpine
+          command: ["sh", "-c", "until pg_isready -h postgres -U efacture; do echo waiting for postgres; sleep 2; done"]
+          securityContext:
+            # The pod requires a non-root user; 70 is the postgres user of the Alpine image.
+            runAsUser: 70

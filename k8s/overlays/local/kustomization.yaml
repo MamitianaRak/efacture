@@ -1,0 +1,17 @@
+# Local cluster (kind): the app, a PostgreSQL, and development-only secrets. Never use these values elsewhere.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - postgres.yaml
+patches:
+  - path: wait-for-db.yaml
+secretGenerator:
+  - name: efacture-secrets
+    literals:
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/efacture
+      - DATABASE_USER=efacture
+      - DATABASE_PASSWORD=efacture
+      - JWT_SECRET=local-cluster-only-secret-0123456789abcdef
+generatorOptions:
+  disableNameSuffixHash: true

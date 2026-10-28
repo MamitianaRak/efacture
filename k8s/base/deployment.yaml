@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: efacture
+  labels:
+    app: efacture
+spec:
+  # One replica: the outbox relay is safe with several (FOR UPDATE SKIP LOCKED), but the simulated platform keeps
+  # its state in each pod's memory. A real platform client would allow scaling out.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: efacture
+  template:
+    metadata:
+      labels:
+        app: efacture
+    spec:
+      # Matches the graceful shutdown configured in Spring (20 s per phase) with some margin.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: efacture
+          image: efacture:local
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: efacture-config
+            - secretRef:
+                name: efacture-secrets
+          # Sized from measurements in a 512 MB container (see the README's Deployment section).
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 512Mi
+          # Spring Boot starts in tens of seconds: the startup probe gives it time before liveness applies.
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+          # Readiness includes the database: a pod that cannot reach PostgreSQL receives no traffic.
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5

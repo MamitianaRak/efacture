@@ -1,0 +1,12 @@
+# Local kind cluster. The longer kubeadm timeouts are for slow disks (WSL2, for instance): unpacking the etcd image
+# took close to a minute there, and kubeadm's default timeout gave up before the control plane was up.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        timeouts:
+          controlPlaneComponentHealthCheck: 10m0s
+          kubernetesAPICall: 5m0s

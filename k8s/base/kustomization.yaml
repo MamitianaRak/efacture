@@ -1,0 +1,14 @@
+# The application alone. The database is expected outside the cluster (a managed PostgreSQL) in production;
+# the "local" overlay adds one for trying it out.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - service.yaml
+configMapGenerator:
+  - name: efacture-config
+    literals:
+      - DEMO_USERS=true
+      - SIMULATOR_VALIDATE_FILES=false
+# Secrets are not committed: the efacture-secrets Secret (DATABASE_URL, DATABASE_USER, DATABASE_PASSWORD,
+# JWT_SECRET, and optionally GOOGLE_API_KEY, GROQ_API_KEY) is created separately, see k8s/README.md.

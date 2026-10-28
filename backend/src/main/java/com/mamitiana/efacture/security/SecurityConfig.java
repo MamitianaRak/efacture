@@ -51,7 +51,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
+                        // Health and the Kubernetes probes (liveness, readiness) must answer without a token.
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/api/**", "/actuator/**").authenticated()
                         // Everything else is the Angular app's static files: public, the data stays behind /api.
                         .anyRequest().permitAll())

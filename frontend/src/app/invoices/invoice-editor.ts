@@ -6,6 +6,9 @@ import { Router, RouterLink } from '@angular/router';
 import { Observable, switchMap } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
+import { Dialogs } from '../shared/dialog';
+import { Icon } from '../shared/icon';
+import { Toasts } from '../shared/toast';
 import { Customer, Invoice, InvoiceRequest, VAT_RATES } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
 import { computeTotals } from '../shared/totals';
@@ -14,7 +17,7 @@ import { StatusBadge } from './status-badge';
 
 @Component({
   selector: 'app-invoice-editor',
-  imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, DatePipe, PercentPipe, ErrorAlert, StatusBadge, PlatformPanel],
+  imports: [ReactiveFormsModule, RouterLink, CurrencyPipe, DatePipe, PercentPipe, ErrorAlert, StatusBadge, PlatformPanel, Icon],
   templateUrl: './invoice-editor.html',
 })
 export class InvoiceEditor {
@@ -24,6 +27,8 @@ export class InvoiceEditor {
   private readonly api = inject(Api);
   private readonly router = inject(Router);
   private readonly fb = inject(NonNullableFormBuilder);
+  private readonly dialogs = inject(Dialogs);
+  private readonly toasts = inject(Toasts);
 
   protected readonly vatRates = VAT_RATES;
   protected readonly invoice = signal<Invoice | null>(null);
@@ -102,7 +107,7 @@ export class InvoiceEditor {
   }
 
   save(): void {
-    this.run(this.saveDraft());
+    this.run(this.saveDraft(), () => 'Brouillon enregistré');
   }
 
   /** Saves pending edits first, so what gets issued is exactly what is on screen. */
@@ -110,32 +115,45 @@ export class InvoiceEditor {
     const current = this.invoice();
     if (current && !this.editable()) {
       // Read-only for this user (accountant on a credit note): nothing to save.
-      this.run(this.api.issue(current.id));
+      this.run(this.api.issue(current.id), issuedMessage);
       return;
     }
-    this.run(this.saveDraft().pipe(switchMap((draft) => this.api.issue(draft.id))));
+    this.run(this.saveDraft().pipe(switchMap((draft) => this.api.issue(draft.id))),
+        issuedMessage);
   }
 
-  deleteDraft(): void {
+  async deleteDraft(): Promise<void> {
     const invoice = this.invoice();
-    if (!invoice || !confirm('Supprimer ce brouillon ?')) {
+    const confirmed = invoice && (await this.dialogs.confirm('Supprimer ce brouillon ?',
+        'Le brouillon sera définitivement supprimé. Aucun numéro n’ayant été attribué, la numérotation n’est pas affectée.',
+        { confirmLabel: 'Supprimer', danger: true }));
+    if (!invoice || !confirmed) {
       return;
     }
     this.busy.set(true);
     this.api.deleteDraft(invoice.id).subscribe({
-      next: () => this.router.navigate(['/factures']),
+      next: () => {
+        this.toasts.success('Brouillon supprimé');
+        this.router.navigate(['/factures']);
+      },
       error: (e: unknown) => this.fail(e),
     });
   }
 
-  createCreditNote(): void {
+  async createCreditNote(): Promise<void> {
     const invoice = this.invoice();
-    if (!invoice || !confirm(`Créer un avoir qui annule la facture ${invoice.number} ?`)) {
+    const confirmed = invoice && (await this.dialogs.confirm(`Annuler la facture ${invoice.number} ?`,
+        'Un avoir du même montant sera créé en brouillon. Une facture émise ne peut pas être supprimée : l’avoir est la seule façon légale de l’annuler.',
+        { confirmLabel: 'Créer l’avoir', danger: true }));
+    if (!invoice || !confirmed) {
       return;
     }
     this.busy.set(true);
     this.api.createCreditNote(invoice.id).subscribe({
-      next: (creditNote) => this.router.navigate(['/factures', creditNote.id]),
+      next: (creditNote) => {
+        this.toasts.success('Avoir créé en brouillon');
+        this.router.navigate(['/factures', creditNote.id]);
+      },
       error: (e: unknown) => this.fail(e),
     });
   }
@@ -170,7 +188,7 @@ export class InvoiceEditor {
     return current ? this.api.updateDraft(current.id, request) : this.api.createDraft(request);
   }
 
-  private run(call: Observable<Invoice>): void {
+  private run(call: Observable<Invoice>, successMessage: (invoice: Invoice) => string): void {
     this.busy.set(true);
     this.error.set(null);
     call.subscribe({
@@ -178,6 +196,7 @@ export class InvoiceEditor {
         const isNew = !this.invoice();
         this.show(invoice);
         this.busy.set(false);
+        this.toasts.success(successMessage(invoice));
         if (isNew) {
           this.router.navigate(['/factures', invoice.id], { replaceUrl: true });
         }
@@ -224,4 +243,8 @@ export class InvoiceEditor {
     date.setDate(date.getDate() + days);
     return date.toISOString().slice(0, 10);
   }
+}
+
+function issuedMessage(invoice: Invoice): string {
+  return invoice.type === 'CREDIT_NOTE' ? `Avoir ${invoice.number} émis` : `Facture ${invoice.number} émise`;
 }

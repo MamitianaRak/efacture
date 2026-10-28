@@ -4,22 +4,35 @@ import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
 import { Customer } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
+import { Icon } from '../shared/icon';
+import { SkeletonTable } from '../shared/skeleton-table';
 
 @Component({
   selector: 'app-customer-list',
-  imports: [RouterLink, ErrorAlert],
+  imports: [RouterLink, ErrorAlert, Icon, SkeletonTable],
   template: `
     <div class="page-header">
-      <h1>Clients</h1>
+      <div>
+        <h1>Clients</h1>
+        <p class="subtitle">Le SIREN du client est obligatoire pour lui adresser une facture électronique.</p>
+      </div>
       @if (isManager()) {
-        <a routerLink="/clients/nouveau" class="button primary">Nouveau client</a>
+        <a routerLink="/clients/nouveau" class="button primary"><app-icon name="plus" [size]="16" /> Nouveau client</a>
       }
     </div>
 
     <app-error-alert [error]="error()" />
 
-    @if (customers().length === 0 && !error()) {
-      <div class="card empty">Aucun client pour l’instant.</div>
+    @if (loading()) {
+      <app-skeleton-table [columns]="4" />
+    } @else if (customers().length === 0 && !error()) {
+      <div class="card empty">
+        <strong>Aucun client pour l’instant</strong>
+        <p>Ajoutez un client avant de créer votre première facture.</p>
+        @if (isManager()) {
+          <a routerLink="/clients/nouveau" class="button primary"><app-icon name="plus" [size]="16" /> Ajouter un client</a>
+        }
+      </div>
     } @else {
       <table class="card">
         <thead>
@@ -54,11 +67,18 @@ export class CustomerList implements OnInit {
   protected readonly isManager = inject(Auth).isManager;
   protected readonly customers = signal<Customer[]>([]);
   protected readonly error = signal<ApiError | null>(null);
+  protected readonly loading = signal(true);
 
   ngOnInit(): void {
     this.api.listCustomers().subscribe({
-      next: (customers) => this.customers.set(customers),
-      error: (e: unknown) => this.error.set(toApiError(e)),
+      next: (customers) => {
+        this.customers.set(customers);
+        this.loading.set(false);
+      },
+      error: (e: unknown) => {
+        this.error.set(toApiError(e));
+        this.loading.set(false);
+      },
     });
   }
 }

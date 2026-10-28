@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
+import { Toasts } from '../shared/toast';
 import { Invoice, PLATFORM_STATUS_LABELS, Submission } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
 import { PlatformBadge } from './platform-badge';
@@ -83,6 +84,7 @@ export class PlatformPanel {
   readonly invoice = input.required<Invoice>();
 
   private readonly api = inject(Api);
+  private readonly toasts = inject(Toasts);
   private readonly isManager = inject(Auth).isManager;
 
   protected readonly labels = PLATFORM_STATUS_LABELS;
@@ -121,11 +123,11 @@ export class PlatformPanel {
   }
 
   submit(): void {
-    this.act(this.api.submit(this.invoice().id));
+    this.act(this.api.submit(this.invoice().id), 'Dépôt enregistré : envoi à la plateforme en cours');
   }
 
   markPaid(): void {
-    this.act(this.api.markPaid(this.invoice().id));
+    this.act(this.api.markPaid(this.invoice().id), 'Encaissement enregistré et transmis à la plateforme');
   }
 
   private refresh(): void {
@@ -144,13 +146,14 @@ export class PlatformPanel {
     });
   }
 
-  private act(call: ReturnType<Api['submit']>): void {
+  private act(call: ReturnType<Api['submit']>, successMessage: string): void {
     this.busy.set(true);
     this.error.set(null);
     call.subscribe({
       next: (submission) => {
         this.submission.set(submission);
         this.busy.set(false);
+        this.toasts.success(successMessage);
       },
       error: (e: unknown) => {
         this.busy.set(false);

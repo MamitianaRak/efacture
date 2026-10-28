@@ -5,17 +5,22 @@ import { Auth } from '../auth/auth';
 import { Api, ApiError, toApiError } from '../shared/api';
 import { InvoiceStatus, InvoiceSummary, PlatformStatus } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
+import { Icon } from '../shared/icon';
+import { SkeletonTable } from '../shared/skeleton-table';
 import { PlatformBadge } from './platform-badge';
 import { StatusBadge } from './status-badge';
 
 @Component({
   selector: 'app-invoice-list',
-  imports: [RouterLink, CurrencyPipe, DatePipe, ErrorAlert, StatusBadge, PlatformBadge],
+  imports: [RouterLink, CurrencyPipe, DatePipe, ErrorAlert, Icon, SkeletonTable, StatusBadge, PlatformBadge],
   template: `
     <div class="page-header">
-      <h1>Factures</h1>
+      <div>
+        <h1>Factures</h1>
+        <p class="subtitle">Brouillons, factures émises et avoirs, avec leur statut sur la plateforme.</p>
+      </div>
       @if (isManager()) {
-        <a routerLink="/factures/nouvelle" class="button primary">Nouvelle facture</a>
+        <a routerLink="/factures/nouvelle" class="button primary"><app-icon name="plus" [size]="16" /> Nouvelle facture</a>
       }
     </div>
 
@@ -27,8 +32,21 @@ import { StatusBadge } from './status-badge';
 
     <app-error-alert [error]="error()" />
 
-    @if (invoices().length === 0 && !error()) {
-      <div class="card empty">Aucune facture.</div>
+    @if (loading()) {
+      <app-skeleton-table [columns]="7" />
+    } @else if (invoices().length === 0 && !error()) {
+      <div class="card empty">
+        @if (status() === undefined) {
+          <strong>Aucune facture pour l’instant</strong>
+          <p>Une facture reste en brouillon, modifiable, jusqu’à son émission. Le numéro est attribué à ce moment-là.</p>
+          @if (isManager()) {
+            <a routerLink="/factures/nouvelle" class="button primary"><app-icon name="plus" [size]="16" /> Créer une facture</a>
+          }
+        } @else {
+          <strong>Aucune facture {{ status() === 'DRAFT' ? 'en brouillon' : 'émise' }}</strong>
+          <p>Changez de filtre pour voir les autres factures.</p>
+        }
+      </div>
     } @else {
       <table class="card">
         <thead>
@@ -65,6 +83,7 @@ export class InvoiceList {
   protected readonly platformStatuses = signal<Record<number, PlatformStatus>>({});
   protected readonly status = signal<InvoiceStatus | undefined>(undefined);
   protected readonly error = signal<ApiError | null>(null);
+  protected readonly loading = signal(true);
 
   constructor() {
     this.load(undefined);
@@ -73,9 +92,17 @@ export class InvoiceList {
 
   load(status: InvoiceStatus | undefined): void {
     this.status.set(status);
+    this.loading.set(true);
+    this.error.set(null);
     this.api.listInvoices(status).subscribe({
-      next: (invoices) => this.invoices.set(invoices),
-      error: (e: unknown) => this.error.set(toApiError(e)),
+      next: (invoices) => {
+        this.invoices.set(invoices);
+        this.loading.set(false);
+      },
+      error: (e: unknown) => {
+        this.error.set(toApiError(e));
+        this.loading.set(false);
+      },
     });
   }
 }

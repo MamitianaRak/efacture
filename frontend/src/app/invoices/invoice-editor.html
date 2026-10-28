@@ -1,33 +1,64 @@
 @let current = invoice();
 
-<div class="page-header">
-  <h1>
-    @if (current?.number) {
-      {{ current?.type === 'CREDIT_NOTE' ? 'Avoir' : 'Facture' }} {{ current?.number }}
-    } @else if (current) {
-      {{ current.type === 'CREDIT_NOTE' ? 'Avoir' : 'Facture' }} en brouillon
-    } @else {
-      Nouvelle facture
-    }
-  </h1>
-  @if (current) {
-    <app-status-badge [status]="current.status" />
-  }
-</div>
+<a routerLink="/factures" class="back"><app-icon name="arrowLeft" [size]="16" /> Factures</a>
 
-@if (current?.originalInvoiceNumber) {
-  <p class="muted">Annule la facture {{ current?.originalInvoiceNumber }}.</p>
-}
-@if (current?.status === 'ISSUED') {
-  <p class="muted">
-    Émise le {{ current?.issueDate | date: 'dd/MM/yyyy' }}. Une facture émise ne peut plus être modifiée :
-    pour la corriger, créez un avoir.
-  </p>
-}
+<div class="page-header">
+  <div>
+    <h1>
+      @if (current?.number) {
+        {{ current?.type === 'CREDIT_NOTE' ? 'Avoir' : 'Facture' }} {{ current?.number }}
+      } @else if (current) {
+        {{ current.type === 'CREDIT_NOTE' ? 'Avoir' : 'Facture' }} en brouillon
+      } @else {
+        Nouvelle facture
+      }
+      @if (current) {
+        <app-status-badge [status]="current.status" />
+      }
+    </h1>
+    <p class="subtitle">
+      @if (current?.status === 'ISSUED') {
+        Émise le {{ current?.issueDate | date: 'dd/MM/yyyy' }}. Une facture émise n’est plus modifiable : pour la
+        corriger, créez un avoir.
+      } @else if (current?.originalInvoiceNumber) {
+        Annule la facture {{ current?.originalInvoiceNumber }}. Le numéro sera attribué à l’émission.
+      } @else {
+        Le numéro est attribué à l’émission : un brouillon peut être modifié ou supprimé librement.
+      }
+    </p>
+  </div>
+
+  <div class="actions">
+    @if (editable()) {
+      @if (current) {
+        <button type="button" class="danger" (click)="deleteDraft()" [disabled]="busy()">
+          <app-icon name="trash" [size]="16" /> Supprimer
+        </button>
+      }
+      <button type="button" (click)="save()" [disabled]="form.invalid || busy()">Enregistrer le brouillon</button>
+    }
+    @if (canIssue()) {
+      <button type="button" class="primary" (click)="issue()" [disabled]="form.invalid || busy()">
+        <app-icon name="check" [size]="16" /> Émettre
+      </button>
+    }
+    @if (current?.status === 'ISSUED') {
+      @if (current?.type === 'INVOICE') {
+        <button type="button" class="danger" (click)="createCreditNote()" [disabled]="busy()">
+          <app-icon name="undo" [size]="16" /> Créer un avoir
+        </button>
+      }
+      <button type="button" class="primary" (click)="downloadFacturX(current!)">
+        <app-icon name="download" [size]="16" /> Factur-X
+      </button>
+    }
+  </div>
+</div>
 
 <app-error-alert [error]="error()" />
 
 <form [formGroup]="form" class="card">
+  <p class="section-title">Client et échéance</p>
   <div class="form-grid">
     <label>
       Client
@@ -47,6 +78,7 @@
     </label>
   </div>
 
+  <p class="section-title lines-title">Lignes</p>
   <table class="lines">
     <thead>
       <tr>
@@ -74,7 +106,9 @@
           <td class="right">{{ line.value.quantity! * line.value.unitPrice! | currency: 'EUR' }}</td>
           @if (editable()) {
             <td class="right">
-              <button type="button" class="link danger" (click)="removeLine(i)" aria-label="Supprimer la ligne">✕</button>
+              <button type="button" class="ghost small" (click)="removeLine(i)" aria-label="Supprimer la ligne">
+                <app-icon name="x" [size]="14" />
+              </button>
             </td>
           }
         </tr>
@@ -82,7 +116,7 @@
     </tbody>
   </table>
   @if (editable()) {
-    <button type="button" class="link" (click)="addLine()">+ Ajouter une ligne</button>
+    <button type="button" class="small" (click)="addLine()"><app-icon name="plus" [size]="14" /> Ajouter une ligne</button>
   }
 
   <div class="totals">
@@ -94,25 +128,6 @@
     <div class="grand"><span>Total TTC</span><span>{{ totals().totalGross | currency: 'EUR' }}</span></div>
   </div>
 </form>
-
-<div class="actions">
-  <a routerLink="/factures" class="button">Retour</a>
-  @if (editable()) {
-    @if (current) {
-      <button type="button" class="danger" (click)="deleteDraft()" [disabled]="busy()">Supprimer le brouillon</button>
-    }
-    <button type="button" (click)="save()" [disabled]="form.invalid || busy()">Enregistrer le brouillon</button>
-  }
-  @if (canIssue()) {
-    <button type="button" class="primary" (click)="issue()" [disabled]="form.invalid || busy()">Émettre</button>
-  }
-  @if (current?.status === 'ISSUED') {
-    @if (current?.type === 'INVOICE') {
-      <button type="button" class="danger" (click)="createCreditNote()" [disabled]="busy()">Créer un avoir</button>
-    }
-    <button type="button" class="primary" (click)="downloadFacturX(current!)">Télécharger le Factur-X</button>
-  }
-</div>
 
 @if (current?.status === 'ISSUED') {
   <app-platform-panel [invoice]="current!" />

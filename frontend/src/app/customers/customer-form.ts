@@ -2,14 +2,23 @@ import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Api, ApiError, toApiError } from '../shared/api';
+import { Toasts } from '../shared/toast';
 import { CustomerRequest } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
+import { Icon } from '../shared/icon';
 
 @Component({
   selector: 'app-customer-form',
-  imports: [ReactiveFormsModule, RouterLink, ErrorAlert],
+  imports: [ReactiveFormsModule, RouterLink, ErrorAlert, Icon],
   template: `
-    <h1>{{ id() ? 'Modifier le client' : 'Nouveau client' }}</h1>
+    <a routerLink="/clients" class="back"><app-icon name="arrowLeft" [size]="16" /> Clients</a>
+
+    <div class="page-header">
+      <div>
+        <h1>{{ id() ? 'Modifier le client' : 'Nouveau client' }}</h1>
+        <p class="subtitle">L’adresse et le SIREN figurent sur chaque facture adressée à ce client.</p>
+      </div>
+    </div>
 
     <app-error-alert [error]="error()" />
 
@@ -26,7 +35,9 @@ import { ErrorAlert } from '../shared/error-alert';
       <label class="span-2">E-mail <input formControlName="email" type="email" /></label>
       <div class="actions span-2">
         <a routerLink="/clients" class="button">Annuler</a>
-        <button type="submit" class="primary" [disabled]="form.invalid || saving()">Enregistrer</button>
+        <button type="submit" class="primary" [disabled]="form.invalid || saving()">
+          <app-icon name="check" [size]="16" /> {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+        </button>
       </div>
     </form>
   `,
@@ -37,6 +48,7 @@ export class CustomerForm implements OnInit {
 
   private readonly api = inject(Api);
   private readonly router = inject(Router);
+  private readonly toasts = inject(Toasts);
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     legalName: ['', Validators.required],
@@ -80,7 +92,10 @@ export class CustomerForm implements OnInit {
     this.saving.set(true);
     this.error.set(null);
     call.subscribe({
-      next: () => this.router.navigate(['/clients']),
+      next: (customer) => {
+        this.toasts.success(id ? `Client ${customer.legalName} mis à jour` : `Client ${customer.legalName} créé`);
+        this.router.navigate(['/clients']);
+      },
       error: (e: unknown) => {
         this.saving.set(false);
         this.error.set(toApiError(e));

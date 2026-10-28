@@ -5,6 +5,8 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { Api, ApiError, toApiError } from '../shared/api';
+import { Dialogs } from '../shared/dialog';
+import { Toasts } from '../shared/toast';
 import {
   ExtractedInvoice,
   PAYMENT_MEANS_LABELS,
@@ -47,6 +49,8 @@ export class SupplierInvoiceReview {
   private readonly api = inject(Api);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly fb = inject(FormBuilder);
+  private readonly dialogs = inject(Dialogs);
+  private readonly toasts = inject(Toasts);
 
   protected readonly statusLabels = SUPPLIER_STATUS_LABELS;
   protected readonly sourceLabels = SOURCE_LABELS;
@@ -110,17 +114,21 @@ export class SupplierInvoiceReview {
   }
 
   save(): void {
-    this.run(this.api.correctSupplierInvoice(this.invoice()!.id, this.formData()));
+    this.run(this.api.correctSupplierInvoice(this.invoice()!.id, this.formData()),
+        (invoice) => invoice.status === 'CHECKED' ? 'Corrections enregistrées : tous les contrôles passent'
+            : 'Corrections enregistrées : des points restent à vérifier');
   }
 
   validate(): void {
-    this.run(this.api.validateSupplierInvoice(this.invoice()!.id));
+    this.run(this.api.validateSupplierInvoice(this.invoice()!.id), () => 'Facture fournisseur validée');
   }
 
-  reject(): void {
-    const reason = prompt('Motif du rejet (par exemple : facture en double, montant contesté) :');
-    if (reason?.trim()) {
-      this.run(this.api.rejectSupplierInvoice(this.invoice()!.id, reason.trim()));
+  async reject(): Promise<void> {
+    const reason = await this.dialogs.prompt('Rejeter cette facture ?',
+        'Le motif est conservé dans l’historique de la facture.',
+        'Motif du rejet (par exemple : facture en double, montant contesté)', 'Rejeter');
+    if (reason) {
+      this.run(this.api.rejectSupplierInvoice(this.invoice()!.id, reason), () => 'Facture fournisseur rejetée');
     }
   }
 
@@ -135,13 +143,14 @@ export class SupplierInvoiceReview {
     });
   }
 
-  private run(call: Observable<SupplierInvoice>): void {
+  private run(call: Observable<SupplierInvoice>, successMessage: (invoice: SupplierInvoice) => string): void {
     this.busy.set(true);
     this.error.set(null);
     call.subscribe({
       next: (invoice) => {
         this.show(invoice);
         this.busy.set(false);
+        this.toasts.success(successMessage(invoice));
       },
       error: (e: unknown) => {
         this.busy.set(false);

@@ -18,6 +18,20 @@ describe('App', () => {
     const page = fixture.nativeElement as HTMLElement;
 
     expect(page.querySelector('nav')).toBeNull();
-    expect(page.querySelector('footer')?.textContent).toContain('démonstration');
+    expect(page.querySelector('.sidebar')).toBeNull();
+    expect(page.querySelector('router-outlet')).not.toBeNull();
+  });
+
+  it('shows the navigation and the demo banner once logged in', async () => {
+    sessionStorage.setItem(
+      'efacture.session',
+      JSON.stringify({ token: 't', expiresAt: '2999-01-01T00:00:00Z', user: { email: 'gerant@demo.fr', displayName: 'Gérant', role: 'MANAGER' } }),
+    );
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const page = fixture.nativeElement as HTMLElement;
+
+    expect(page.querySelector('nav')?.textContent).toContain('Factures');
+    expect(page.querySelector('.demo-banner')?.textContent).toContain('plateforme agréée est simulée');
   });
 });

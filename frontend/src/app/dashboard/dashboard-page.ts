@@ -4,23 +4,39 @@ import { RouterLink } from '@angular/router';
 import { Api, ApiError, toApiError } from '../shared/api';
 import { Dashboard } from '../shared/api.models';
 import { ErrorAlert } from '../shared/error-alert';
+import { Icon } from '../shared/icon';
 
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [CurrencyPipe, RouterLink, ErrorAlert],
+  imports: [CurrencyPipe, RouterLink, ErrorAlert, Icon],
   template: `
     <div class="page-header">
-      <h1>Tableau de bord</h1>
-      <div class="year">
-        <button type="button" (click)="load(year() - 1)" aria-label="Année précédente">‹</button>
+      <div>
+        <h1>Tableau de bord</h1>
+        <p class="subtitle">Chiffre d’affaires, encaissements et factures qui demandent une action.</p>
+      </div>
+      <div class="year" role="group" aria-label="Année">
+        <button type="button" class="ghost small" (click)="load(year() - 1)" aria-label="Année précédente">‹</button>
         <strong>{{ year() }}</strong>
-        <button type="button" (click)="load(year() + 1)" [disabled]="year() >= currentYear" aria-label="Année suivante">›</button>
+        <button type="button" class="ghost small" (click)="load(year() + 1)" [disabled]="year() >= currentYear" aria-label="Année suivante">›</button>
       </div>
     </div>
 
     <app-error-alert [error]="error()" />
+
+    @if (!data() && !error()) {
+      <div class="kpis" aria-busy="true">
+        @for (i of [0, 1, 2, 3]; track i) {
+          <div class="card kpi">
+            <span class="skeleton" style="width: 55%"></span>
+            <span class="skeleton big" style="width: 75%"></span>
+          </div>
+        }
+      </div>
+      <section class="card"><span class="skeleton" style="height: 180px"></span></section>
+    }
 
     @if (data(); as d) {
       <div class="kpis">
@@ -69,7 +85,7 @@ const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aoû
               </span>
             </a>
           } @empty {
-            <p class="muted">Aucune facture en retard.</p>
+            <p class="all-clear"><app-icon name="check" [size]="16" /> Aucune facture en retard.</p>
           }
         </section>
 
@@ -88,7 +104,7 @@ const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aoû
               </span>
             </a>
           } @empty {
-            <p class="muted">Rien à traiter.</p>
+            <p class="all-clear"><app-icon name="check" [size]="16" /> Rien à traiter.</p>
           }
           @if (d.draftCount > 0) {
             <a class="row" routerLink="/factures">
@@ -101,12 +117,18 @@ const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'aoû
   `,
   styles: `
     h2 { font-size: 1.05rem; margin: 0 0 12px; }
-    .year { display: flex; align-items: center; gap: 8px; }
-    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 12px; }
-    .kpi { display: flex; flex-direction: column; gap: 4px; margin: 0; }
-    .kpi strong { font-size: 1.4rem; }
-    .alert-kpi { border-color: var(--danger); }
+    .year { display: flex; align-items: center; gap: 4px; padding: 3px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: var(--radius-sm); }
+    .year strong { min-width: 44px; text-align: center; }
+    .year button { font-size: 1.1rem; padding: 2px 10px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .kpi { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+    .kpi > span:first-child { font-size: 0.8rem; font-weight: 500; }
+    .kpi strong { font-size: 1.5rem; font-weight: 650; letter-spacing: -0.01em; }
+    .kpi .skeleton.big { height: 26px; }
+    .alert-kpi { border-color: #f3c3c3; background: var(--danger-soft); }
     .alert-kpi strong { color: var(--danger); }
+    .all-clear { display: flex; align-items: center; gap: 8px; color: var(--success); margin: 4px 0; }
     section.card { margin-top: 16px; }
     .chart { display: flex; align-items: flex-end; gap: 8px; height: 180px; }
     .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-size: 0.75rem; }

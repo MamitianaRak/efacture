@@ -4,12 +4,14 @@
 
 **Factur-X e-invoicing for French small businesses, built with Spring Boot 4 (Java 25) and Angular 22.**
 
+**Live demo: [efacture-sb3h.onrender.com](https://efacture-sb3h.onrender.com/)**, demo accounts `gerant@demo.fr` (manager) and `comptable@demo.fr` (accountant), password `demo1234`. Hosted on Render's free tier: the first visit after a quiet period takes about a minute while the service wakes up. To try the supplier invoice reader, use a fictitious invoice, never a real one.
+
 ### At a glance
 
 - **Problem:** French e-invoicing becomes mandatory between businesses (reception since September 2026, issuance for small businesses in September 2027). eFacture issues compliant Factur-X invoices, follows them on a (simulated) registered platform, and reads incoming supplier invoices with AI under strict checks.
 - **Stack:** Java 25, Spring Boot 4, Spring Data JPA / Hibernate, Spring Security (JWT, roles), PostgreSQL, Flyway, Angular 22, Spring AI, Docker, GitHub Actions.
 - **Decisions worth a look:** gapless invoice numbering under concurrency, a transactional outbox with idempotent delivery to the platform, and AI output checked by deterministic rules (including detection of invented values).
-- **Proof:** 111 backend tests (JUnit 5, Mockito, Testcontainers on a real PostgreSQL), 7 frontend tests, CI on every push, and an extraction evaluation with measured results and stated limits.
+- **Proof:** 111 backend tests (JUnit 5, Mockito, Testcontainers on a real PostgreSQL), 8 frontend tests, CI on every push, and an extraction evaluation with measured results and stated limits.
 
 France is making electronic invoicing mandatory between VAT-registered businesses. Every company must be able to **receive** e-invoices since **1 September 2026**, and small and medium businesses must **issue** them from **1 September 2027**. Invoices travel through government-registered platforms (*plateformes agréées*) in structured formats such as **Factur-X**: a readable PDF with machine-readable XML embedded inside.
 
@@ -151,7 +153,7 @@ It needs the API keys in `backend/.env` and writes `target/eval-report.md`. Free
 | Backend unit (JUnit 5, Mockito) | 79 | SIREN, VAT and IBAN keys, totals and rounding, invoice rules, mandatory mentions, service behaviour, platform state machine, outbox retry delays, LLM gateway fallback and circuit breaker, supplier invoice checks and grounding, readers with scripted models, evaluation set consistency |
 | Factur-X | 5 | Generated files pass the Mustang validator (PDF/A-3 and EN 16931 rules); embedded XML carries the same totals |
 | Backend integration (Testcontainers) | 27 | API lifecycle on a real PostgreSQL, 20 concurrent issuances, real logins and JWTs per role, platform scenarios (approved then paid, rejected then resubmitted, refused, duplicate notification), outbox under outage, lost answer, abandon and concurrent relays, every dashboard figure, supplier invoice import, review and validation |
-| Frontend (Vitest) | 7 | Totals preview matching the backend figures, auth interceptor (token, expiry, 401) |
+| Frontend (Vitest) | 8 | Totals preview matching the backend figures, auth interceptor (token, expiry, 401), shell shown only once logged in |
 
 Testcontainers caught a real schema mismatch (`CHAR` columns against `String` fields) that unit tests could not see. The simulator is driven step by step in tests (`tick()`), with its rates set to 0 or 1, so platform scenarios are deterministic. Tests never call a real LLM, even with keys in `.env`: models are scripted, and integration tests run on a fixed clock.
 
@@ -229,6 +231,8 @@ Kubernetes manifests (probes, resources, graceful shutdown) are in [k8s/](k8s/RE
 
 The online demo therefore runs with `SIMULATOR_VALIDATE_FILES=false`; validation stays on locally and in CI, where every generated file is checked.
 
+**Found in production.** The free instance has 0.1 CPU, so rendering a Factur-X PDF takes seconds instead of a fraction of one. The rendering ran inside the transaction that loaded the invoice, holding a pooled connection the whole time: the 5 connections were soon taken, every other request, `/actuator/health` included, waited 30 s and failed (`active=5, idle=0, waiting=9`). The invoice data is now copied in a short transaction and the PDF rendered after it, with no connection held. Locally, with a full CPU, the problem never showed.
+
 ## API
 
 All endpoints except login require a bearer token.
@@ -260,7 +264,7 @@ All endpoints except login require a bearer token.
 
 - **Pre-payment fraud agent**: before a supplier invoice is paid, an agent compares the IBAN with the supplier's history, looks for near-duplicates and unusual amounts, and explains its risk assessment; payment stays blocked until a person decides
 - **Overdue reminders agent**, regulatory RAG on the reform's public documents, an MCP server
-- Online demo (configuration ready in `render.yaml`)
+- Generate the Factur-X once at issuance and store it, instead of rendering it on each download
 
 ## Limitations
 
